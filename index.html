@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#fafaf9">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" type="image/png" href="icon.png">
+<title>Rhetorik Trainer</title>
+<style>
+:root{
+  --bg:#fafaf9; --panel:#ffffff; --panel2:#e7e5e4; --line:#d6d3d1;
+  --txt:#292524; --dim:#57534e; --faint:#78716c;
+  --acc:#2563eb; --acc2:#1d4ed8; --green:#059669; --red:#e11d48;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0; height:100%; background:var(--bg); color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+#app{display:flex; flex-direction:column; height:100%; max-width:520px; margin:0 auto}
+header{display:flex; justify-content:space-between; align-items:center;
+  padding:14px 16px 10px; border-bottom:1px solid var(--panel2)}
+h1{font-family:Georgia,'Times New Roman',serif; font-size:20px; margin:0; color:#1c1917}
+.sub{font-family:ui-monospace,Menlo,monospace; font-size:10px; letter-spacing:.12em; color:var(--faint); margin-top:3px}
+.pill{display:flex; align-items:center; gap:6px; background:var(--panel); border:1px solid var(--panel2);
+  border-radius:999px; padding:6px 12px; font-family:ui-monospace,monospace; font-size:12px}
+main{flex:1; overflow-y:auto; padding:18px 16px 24px; -webkit-overflow-scrolling:touch}
+nav{display:grid; grid-template-columns:repeat(5,1fr); border-top:1px solid var(--panel2);
+  padding-bottom:env(safe-area-inset-bottom)}
+nav button{background:none; border:none; color:var(--faint); padding:10px 0 12px;
+  font-family:ui-monospace,monospace; font-size:10px; letter-spacing:.06em; cursor:pointer}
+nav button.on{color:var(--acc2)}
+nav button .ic{font-size:18px; display:block; margin-bottom:3px}
+.btn{display:block; width:100%; border:none; border-radius:14px; padding:14px;
+  font-size:15px; font-weight:600; cursor:pointer; margin-top:10px}
+.btn.primary{background:var(--acc); color:#ffffff}
+.btn.ghost{background:var(--panel2); color:var(--txt)}
+.btn.good{background:var(--green); color:#ffffff}
+.btn.bad{background:var(--panel2); color:var(--red); border:1px solid var(--line)}
+.btn:disabled{opacity:.4}
+.row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.card{background:var(--panel); border:1px solid var(--panel2); border-radius:16px;
+  padding:16px; margin-top:12px; box-shadow:0 1px 2px rgba(28,25,23,.06)}
+.card h3{font-family:Georgia,serif; font-weight:normal; font-size:21px; margin:0; color:#1c1917}
+.topic{font-family:Georgia,serif; font-size:24px; line-height:1.35; color:#1c1917}
+.meta{font-family:ui-monospace,monospace; font-size:11px; color:var(--faint); margin:12px 0 8px}
+.timer{font-family:ui-monospace,monospace; font-size:44px; text-align:center; color:var(--acc2); margin:6px 0}
+.timer.over{color:var(--red)}
+textarea, input[type=text], select{width:100%; background:var(--bg); border:1px solid var(--line);
+  border-radius:10px; padding:10px 12px; color:var(--txt); font-size:15px; margin-top:8px}
+textarea{min-height:110px}
+.why{font-size:13px; color:var(--dim); margin:8px 0 0; line-height:1.45}
+.why b{color:var(--acc2); font-weight:600}
+.fw{background:#fee2e2; color:#9f1239; border-radius:4px; padding:0 3px}
+.trans{font-size:15px; line-height:1.6; color:var(--txt); margin-top:8px}
+.stat{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:10px}
+.stat div{background:var(--bg); border:1px solid var(--panel2); border-radius:12px; padding:10px; text-align:center}
+.stat b{display:block; font-family:ui-monospace,monospace; font-size:20px; color:var(--acc2)}
+.stat span{font-size:11px; color:var(--faint)}
+.score{font-family:Georgia,serif; font-size:40px; color:var(--acc2); text-align:center}
+.tag{display:inline-block; font-family:ui-monospace,monospace; font-size:11px; padding:3px 9px;
+  border-radius:999px; margin:3px 4px 0 0}
+.tag.ok{background:#d1fae5; color:#065f46}
+.tag.no{background:#fee2e2; color:#9f1239}
+.chips{display:flex; gap:8px; overflow-x:auto; padding-bottom:6px}
+.chip{flex:0 0 auto; border:none; border-radius:999px; padding:7px 13px; cursor:pointer;
+  font-family:ui-monospace,monospace; font-size:12px; background:var(--panel2); color:var(--dim)}
+.chip.on{background:var(--acc); color:#fff}
+.overlay{position:fixed; inset:0; background:rgba(250,250,249,.98); z-index:20; display:none;
+  flex-direction:column; padding:16px; max-width:520px; margin:0 auto}
+.overlay.show{display:flex}
+.overlay .body{flex:1; overflow-y:auto}
+.x{background:var(--panel2); border:none; color:var(--txt); border-radius:10px;
+  width:36px; height:36px; font-size:16px; cursor:pointer}
+.small{font-size:13px; color:var(--dim); margin:14px 0 4px}
+.mono{font-family:ui-monospace,monospace; font-size:10px; color:var(--dim)}
+.center{text-align:center}
+.lvlwrap{height:10px; background:var(--panel2); border-radius:99px; overflow:hidden; margin-top:10px}
+.lvl{height:100%; width:0%; background:var(--acc); border-radius:99px}
+audio{width:100%; margin-top:10px}
+.rec{width:86px; height:86px; border-radius:50%; border:none; background:var(--red); color:#fff;
+  font-size:15px; font-weight:700; cursor:pointer; display:block; margin:14px auto 0}
+.rec.idle{background:var(--acc)}
+svg.chart{width:100%; height:120px; margin-top:8px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div><h1>Rhetorik Trainer</h1><div class="sub" id="subline"></div></div>
+    <div style="display:flex; gap:8px; align-items:center">
+      <button class="x" onclick="openBackup()" title="Einstellungen">&#8681;</button>
+      <div class="pill">&#128293; <span id="streak">0</span></div>
+    </div>
+  </header>
+  <main id="main"></main>
+  <nav>
+    <button data-tab="steg" class="on" onclick="go('steg')"><span class="ic">&#127908;</span>Stegreif</button>
+    <button data-tab="rede" onclick="go('rede')"><span class="ic">&#128483;</span>Rede</button>
+    <button data-tab="konter" onclick="go('konter')"><span class="ic">&#9889;</span>Konter</button>
+    <button data-tab="prep" onclick="go('prep')"><span class="ic">&#182;</span>PREP</button>
+    <button data-tab="verlauf" onclick="go('verlauf')"><span class="ic">&#128200;</span>Verlauf</button>
+  </nav>
+</div>
+
+<div class="overlay" id="backup">
+  <div style="display:flex; justify-content:space-between; align-items:center">
+    <h1 style="font-family:Georgia,serif">Sicherung &amp; Einstellungen</h1>
+    <button class="x" onclick="closeBackup()">&#10005;</button>
+  </div>
+  <div class="body">
+    <p class="mono" id="saveinfo" style="margin-top:10px"></p>
+    <p class="small">Sicherungscode kopieren und aufbewahren:</p>
+    <textarea id="exportbox" readonly rows="3" class="mono" onclick="this.select()"></textarea>
+    <button class="btn ghost" onclick="copyExport()">In die Zwischenablage</button>
+    <p class="small">Sicherung einspielen:</p>
+    <textarea id="importbox" rows="2" class="mono" placeholder="Code hier einfügen"></textarea>
+    <button class="btn primary" onclick="doImport()">Wiederherstellen</button>
+    <p class="small">KI-Anbieter (für Bewertung und Feedback; Key bleibt auf diesem Gerät):</p>
+    <select id="provbox" onchange="provChanged()">
+      <option value="gemini">Google Gemini — kostenlos</option>
+      <option value="anthropic">Anthropic Claude — bezahlt</option>
+    </select>
+    <p class="small" id="keyhint"></p>
+    <input type="text" id="keybox" placeholder="API-Key">
+    <button class="btn ghost" onclick="saveKey()">Key speichern &amp; testen</button>
+    <p class="mono" id="notice" style="margin-top:12px"></p>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ================= Inhalte ================= */
+const THEMEN=[
+"Überzeuge deinen Chef, dass Homeoffice die Produktivität erhöht.",
+"Erkläre einem neuen Kollegen in 60 Sekunden, was dein Team macht.",
+"Verteidige eine Investition in neue Software gegenüber der Geschäftsführung.",
+"Ein Projekt verzögert sich — informiere das Team, ohne Panik auszulösen.",
+"Stelle dich in 60 Sekunden bei einem neuen Kunden vor.",
+"Warum sollte eine Firma in Weiterbildung investieren?",
+"Erkläre eine komplizierte Auswertung so, dass es jeder versteht.",
+"Überzeuge Kollegen, einen neuen Prozess wenigstens zu testen.",
+"Begründe, warum dein Team eine zusätzliche Stelle braucht.",
+"Präsentiere ein Ergebnis, das schlechter ausfiel als geplant.",
+"Begründe eine unpopuläre Entscheidung vor dem Team.",
+"Überzeuge dein Team, Fehler offen anzusprechen statt sie zu verstecken.",
+"Halte ein Plädoyer für kürzere Meetings.",
+"Vier-Tage-Woche: ja oder nein — bezieh klar Stellung.",
+"KI im Arbeitsalltag: Chance oder Risiko? Ein klares Plädoyer.",
+"Sollte man im Job immer ehrlich sein?",
+"Erkläre deinen Beruf deiner Oma.",
+"Verkaufe mir einen ganz gewöhnlichen Bleistift.",
+"Warum scheitern gute Ideen oft an der Umsetzung?",
+"Erkläre den Begriff Qualität, ohne das Wort Qualität zu benutzen.",
+"Überzeuge einen Freund, mit dir wandern zu gehen statt fernzusehen.",
+"Was ist die beste Erfindung der letzten 50 Jahre — und warum?",
+"Verteidige die These: Frühstück ist überbewertet.",
+"Empfiehl jemandem deine Region für einen Wochenendtrip.",
+"Warum sollte jeder Erwachsene noch einmal etwas Neues lernen?",
+"Argumentiere: Bargeld sollte bleiben.",
+"Überzeuge jemanden, weniger aufs Handy zu schauen.",
+"Was macht einen guten Freund aus?",
+"Verteidige: Der FC Augsburg ist unterschätzt.",
+"Warum lohnt sich Urlaub in Deutschland?",
+"Argumentiere gegen den Satz: Das bringt doch eh nichts.",
+"Erkläre einem Kind, warum man sparen sollte.",
+"Halte ein Plädoyer für die Mittagspause.",
+"Argumentiere: Weniger ist mehr.",
+"Warum ist Zuhören wichtiger als Reden?",
+"Was würdest du mit einem freien Tag pro Woche machen — und warum wäre das gut investiert?"];
+
+const EINWAENDE=[
+"Das haben wir schon immer so gemacht.",
+"Dafür haben wir kein Budget.",
+"Das funktioniert bei uns nicht.",
+"Dafür ist jetzt nicht der richtige Zeitpunkt.",
+"Das ist mir zu riskant.",
+"Da machen die anderen Abteilungen nie mit.",
+"Das ist doch nur wieder so ein Trend.",
+"Sie sind noch zu kurz dabei, um das zu beurteilen.",
+"Das klingt in der Theorie gut.",
+"Wir haben gerade Wichtigeres zu tun.",
+"Das hat beim letzten Mal auch nicht geklappt.",
+"Zu teuer.",
+"Der Chef will das sowieso nicht.",
+"Dazu fehlt uns das Personal.",
+"Warum sollten ausgerechnet wir das machen?",
+"Das ist nicht Ihre Aufgabe.",
+"Da sehe ich keinen Mehrwert.",
+"Können wir das nicht später besprechen?",
+"Das ist viel zu kompliziert.",
+"Andere machen das auch nicht.",
+"Das rechnet sich nie.",
+"Sie übertreiben.",
+"Erst mal abwarten.",
+"Das entscheiden nicht Sie."];
+
+const TECHNIKEN=[
+{n:"Rückfrage",p:"Was genau meinen Sie mit „…“?",w:"Verschafft Zeit und zwingt den Einwand zur Präzision."},
+{n:"Zustimmen & Drehen",p:"Stimmt — und genau deshalb …",w:"Nimmt dem Angriff die Energie und nutzt sie für dein Argument."},
+{n:"Umdeuten",p:"Teuer? Es ist eine Investition, die sich in X Monaten zurückzahlt.",w:"Gibt dem gleichen Fakt einen neuen Rahmen."},
+{n:"Konkretisieren",p:"Was genau hat beim letzten Mal gefehlt?",w:"Zerlegt Pauschalkritik in lösbare Einzelpunkte."},
+{n:"Nutzen-Brücke",p:"Gerade weil das Budget knapp ist, lohnt sich …",w:"Führt vom Einwand direkt zum Vorteil des Gegenübers."}];
+
+const SITUATIONEN=[
+"Du willst freitags Homeoffice.",
+"Das Team soll ein neues Tool testen.",
+"Du brauchst eine Fristverlängerung.",
+"Du empfiehlst, ein wöchentliches Meeting abzuschaffen.",
+"Du willst Budget für eine Weiterbildung.",
+"Ein Freund soll mit ins Fitnessstudio kommen.",
+"Die Familie soll dieses Jahr woanders Urlaub machen.",
+"Du schlägst vor, einen Lieferanten zu wechseln.",
+"Du willst eine Gehaltserhöhung ansprechen.",
+"Das Team soll Fehler in einer Liste sammeln statt sie zu verstecken.",
+"Du empfiehlst deinem Chef, eine Aufgabe abzugeben.",
+"Du willst, dass Meetings nur noch mit Agenda stattfinden.",
+"Überzeuge einen Kollegen, dir eine Aufgabe abzunehmen.",
+"Du schlägst eine Testphase für KI-Tools vor.",
+"Du willst den Sonntag zum handyfreien Tag machen.",
+"Dein Verein braucht mehr Freiwillige — wirb dafür."];
+
+const FUELL=["ähm","äh","ähh","hm","halt","quasi","sozusagen","irgendwie","eigentlich",
+"im prinzip","im grunde","sag ich mal","sage ich mal","letztendlich","im endeffekt",
+"praktisch","gewissermaßen","an sich","ein stück weit","gefühlt","oder so","und so weiter"];
+
+const KEY="rt-v1", ET="et-standalone-v1";
+
+/* ================= Zustand ================= */
+let S={history:[],stats:{streak:0,lastDay:null,sessions:0}};
+let storageOk=true, apiKey="", provider="gemini", gModel="";
+
+function loadState(){
+  try{
+    const raw=localStorage.getItem(KEY);
+    if(raw)S=Object.assign(S,JSON.parse(raw));
+    apiKey=localStorage.getItem(KEY+":key")||localStorage.getItem(ET+":key")||"";
+    provider=localStorage.getItem(KEY+":prov")||localStorage.getItem(ET+":prov")||"gemini";
+    gModel=localStorage.getItem(KEY+":gmodel")||localStorage.getItem(ET+":gmodel")||"";
+    localStorage.setItem(KEY+":probe","1");
+  }catch(e){storageOk=false;}
+}
+let saveT=null;
+function save(){
+  if(!storageOk)return;
+  clearTimeout(saveT);
+  saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(S));
+    const si=document.getElementById("saveinfo");
+    if(si)si.textContent="Automatisch gespeichert "+new Date().toLocaleTimeString("de-DE");
+  }catch(e){}},300);
+}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"&&storageOk){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}});
+function bumpStreak(){
+  const today=new Date().toDateString(), yest=new Date(Date.now()-86400000).toDateString();
+  S.stats.sessions++;
+  S.stats.streak=S.stats.lastDay===today?S.stats.streak:(S.stats.lastDay===yest?S.stats.streak+1:1);
+  S.stats.lastDay=today; save();
+}
+
+/* ================= Helfer ================= */
+const $=id=>document.getElementById(id);
+const norm=s=>String(s).toLowerCase().replace(/[^a-zäöüß0-9' ]/g," ").replace(/\s+/g," ").trim();
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function pick(arr,last){let x;do{x=arr[Math.floor(Math.random()*arr.length)];}while(arr.length>1&&x===last);return x;}
+function headline(){
+  $("subline").textContent=S.stats.sessions+" ÜBUNGEN · "+S.history.length+" REDEN";
+  $("streak").textContent=S.stats.streak;
+}
+async function askKI(messages,system,maxTokens){
+  if(!apiKey) throw new Error("Kein API-Key hinterlegt (⇩ oben rechts → Key)");
+  if(provider==="gemini"){
+    const payload=JSON.stringify({
+      system_instruction:{parts:[{text:system}]},
+      contents:messages.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]})),
+      generationConfig:{maxOutputTokens:Math.max(1024,maxTokens||800)}
+    });
+    const tryModel=async(model)=>{
+      let res;
+      try{
+        res=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent",
+          {method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},body:payload});
+      }catch(netErr){
+        const err=new Error("Netzwerkfehler: Die Anfrage kam gar nicht bei Google an („Load failed“). Häufigste Ursachen: Key-Einschränkung in AI Studio, Werbeblocker/VPN oder kurz kein Netz.");
+        err.code=0;throw err;
+      }
+      if(!res.ok){
+        let msg="Server antwortet mit "+res.status;
+        try{const eb=await res.json();if(eb&&eb.error&&eb.error.message)msg=eb.error.message;}catch(_e){}
+        const err=new Error(msg);err.code=res.status;throw err;
+      }
+      const d=await res.json();
+      const c=d.candidates&&d.candidates[0];
+      const txt=((c&&c.content&&c.content.parts)||[]).map(p=>p.text||"").join("\n");
+      if(!txt)throw new Error("leere Antwort (Tageslimit erreicht?)");
+      return txt;
+    };
+    const remember=m=>{gModel=m;try{localStorage.setItem(KEY+":gmodel",m);}catch(_e){}};
+    const modelGone=e=>e.code===404||/not (available|found|supported)|deprecated|no longer|does not exist/i.test(e.message||"");
+    const overloaded=e=>e.code===503||e.code===429||/high demand|overloaded|try again|temporar|unavailable|resource.?exhaust|quota/i.test(e.message||"");
+    const cands=[...new Set([gModel,"gemini-flash-latest","gemini-3.7-flash","gemini-3.6-flash",
+      "gemini-flash-lite-latest","gemini-2.5-flash-lite","gemini-2.5-flash"].filter(Boolean))];
+    let lastErr=null,sawOverload=false;
+    for(const m of cands){
+      try{const t=await tryModel(m);remember(m);return t;}
+      catch(e){
+        if(modelGone(e)){lastErr=lastErr||e;continue;}
+        if(overloaded(e)){sawOverload=true;lastErr=e;continue;}
+        throw e;
+      }
+    }
+    if(sawOverload){
+      await new Promise(r=>setTimeout(r,2500));
+      for(const m of cands){try{const t=await tryModel(m);remember(m);return t;}catch(e){lastErr=e;}}
+      throw new Error("Google meldet Überlastung auf allen Gratis-Modellen — kurz warten und nochmal.");
+    }
+    try{
+      const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=100",
+        {headers:{"x-goog-api-key":apiKey}});
+      const d=await r.json();
+      const pk=((d.models)||[]).filter(m=>(m.supportedGenerationMethods||[]).includes("generateContent"))
+        .map(m=>String(m.name||"").replace("models/",""))
+        .filter(n=>n.includes("flash")&&!/image|live|tts|audio|embed|veo|imagen|thinking/.test(n))
+        .sort().reverse()[0];
+      if(pk){const t=await tryModel(pk);remember(pk);return t;}
+    }catch(_e){}
+    throw lastErr||new Error("kein Gemini-Modell verfügbar");
+  }
+  let res;
+  try{
+    res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":apiKey,
+        "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:maxTokens||800,system:system,messages:messages})});
+  }catch(netErr){
+    throw new Error("Netzwerkfehler: Anfrage kam nicht durch („Load failed“) — Werbeblocker, VPN oder kein Netz?");
+  }
+  if(!res.ok){
+    let msg="Server antwortet mit "+res.status;
+    try{const eb=await res.json();if(eb&&eb.error&&eb.error.message)msg=eb.error.message;}catch(_e){}
+    throw new Error(msg);
+  }
+  const d=await res.json();
+  const txt=d.content.filter(c=>c.type==="text").map(c=>c.text).join("\n");
+  if(!txt)throw new Error("leere Antwort");
+  return txt;
+}
+function parseJSON(text){
+  const c=text.replace(/```json/gi,"").replace(/```/g,"").trim();
+  const st=[c.indexOf("{"),c.indexOf("[")].filter(i=>i>=0);
+  if(!st.length)throw new Error("kein JSON");
+  const b=c.slice(Math.min(...st));
+  const last=Math.max(b.lastIndexOf("}"),b.lastIndexOf("]"));
+  try{return JSON.parse(b.slice(0,last+1));}catch(e){}
+  const objs=[];let d=0,s0=-1,inS=false,escp=false;
+  for(let i=0;i<b.length;i++){const ch=b[i];
+    if(inS){if(escp)escp=false;else if(ch==="\\")escp=true;else if(ch==='"')inS=false;continue;}
+    if(ch==='"'){inS=true;continue;}
+    if(ch==="{"){if(d===0)s0=i;d++;}
+    else if(ch==="}"){d--;if(d===0&&s0>=0){try{objs.push(JSON.parse(b.slice(s0,i+1)));}catch(e){}s0=-1;}}}
+  if(objs.length===1)return objs[0];
+  if(objs.length)return objs;
+  throw new Error("Antwort unvollständig");
+}
+
+/* ================= Analyse ================= */
+function analyze(text,seconds){
+  const n=" "+norm(text)+" ";
+  const words=norm(text).split(" ").filter(Boolean);
+  const found=[];
+  FUELL.forEach(f=>{
+    let i=0;const needle=" "+f+" ";
+    while((i=n.indexOf(needle,i))>=0){found.push(f);i+=needle.length-1;}
+  });
+  const sents=text.split(/[.!?]+/).map(s=>s.trim()).filter(Boolean);
+  const avg=sents.length?Math.round(words.length/sents.length):0;
+  const per100=words.length?Math.round(found.length/words.length*1000)/10:0;
+  const wpm=seconds>0?Math.round(words.length/(seconds/60)):0;
+  return{words:words.length,fillers:found,per100:per100,wpm:wpm,avgSent:avg};
+}
+function highlight(text){
+  let h=esc(text);
+  const sorted=[...FUELL].sort((a,b)=>b.length-a.length);
+  sorted.forEach(f=>{
+    const re=new RegExp("(^|[^a-zäöüßA-ZÄÖÜ])("+f.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")(?=$|[^a-zäöüßA-ZÄÖÜ])","gi");
+    h=h.replace(re,'$1<span class="fw">$2</span>');
+  });
+  return h;
+}
+
+/* ================= Spracherkennung ================= */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let recActive=false,recObj=null,recErr="";
+function record(cb){
+  if(!SR)return;
+  if(recActive){try{recObj.stop();}catch(e){}recActive=false;syncMic();return;}
+  recErr="";
+  recObj=new SR();recObj.lang="de-DE";recObj.interimResults=false;recObj.maxAlternatives=1;
+  recObj.onresult=e=>{cb(e.results[0][0].transcript);};
+  recObj.onend=()=>{recActive=false;syncMic();};
+  recObj.onerror=e=>{recErr="Web-Erkennung blockiert ("+(e.error||"?")+") — nutze das Mikrofon auf der iOS-Tastatur im Textfeld.";recActive=false;syncMic();};
+  try{recObj.start();recActive=true;syncMic();}
+  catch(e){recErr="Konnte nicht starten — nutze das Tastatur-Diktat im Textfeld.";recActive=false;syncMic();}
+}
+function syncMic(){
+  const b=$("micbtn");if(b)b.textContent=recActive?"🎙 Höre zu … tippen zum Stoppen":"🎙 Web-Aufnahme (falls verfügbar)";
+  const e=$("micerr");if(e)e.textContent=recErr;
+}
+
+/* ================= Timer ================= */
+let TI=null;
+function startTimer(sec,onTick,onDone){
+  stopTimer();
+  let left=sec;onTick(left);
+  TI=setInterval(()=>{left--;onTick(left);if(left<=0){stopTimer();onDone();}},1000);
+}
+function stopTimer(){if(TI){clearInterval(TI);TI=null;}}
+
+/* ================= Tabs ================= */
+let TAB="steg";
+function go(t){stopTimer();TAB=t;document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.tab===t));render();}
+function render(){
+  headline();
+  if(TAB==="steg")renderSteg();
+  else if(TAB==="rede")renderRede();
+  else if(TAB==="konter")renderKonter();
+  else if(TAB==="prep")renderPrep();
+  else renderVerlauf();
+}
+
+/* ================= Stegreif ================= */
+let ST={phase:"idle",topic:pick(THEMEN),text:"",started:0,elapsed:0,left:60,ai:null,aiLoad:false,aiErr:"",res:null};
+function stegNew(){stopTimer();ST={phase:"idle",topic:pick(THEMEN,ST.topic),text:"",started:0,elapsed:0,left:60,ai:null,aiLoad:false,aiErr:"",res:null};render();}
+function stegPrep(){
+  ST.phase="prep";render();
+  startTimer(30,l=>{const t=$("timer");if(t)t.textContent=l+" s Denkzeit";},()=>stegTalk());
+}
+function stegTalk(){
+  stopTimer();ST.phase="talk";ST.started=Date.now();render();
+  startTimer(60,l=>{ST.left=l;const t=$("timer");if(t){t.textContent=l+" s";t.classList.toggle("over",l<=10);}},
+    ()=>{const t=$("timer");if(t){t.textContent="Zeit um — Fertig drücken";t.classList.add("over");}});
+}
+async function stegDone(){
+  stopTimer();
+  ST.text=$("stegtext")?$("stegtext").value.trim():ST.text;
+  ST.elapsed=Math.max(5,Math.round((Date.now()-ST.started)/1000));
+  if(!ST.text){ST.phase="talk";render();return;}
+  ST.res=analyze(ST.text,Math.min(ST.elapsed,90));
+  ST.phase="result";
+  S.history.push({d:Date.now(),per100:ST.res.per100,wpm:ST.res.wpm,words:ST.res.words});
+  if(S.history.length>200)S.history=S.history.slice(-200);
+  bumpStreak();render();
+  if(!apiKey)return;
+  ST.aiLoad=true;render();
+  try{
+    const txt=await askKI([{role:"user",content:"Thema: "+ST.topic+"\nDauer: "+ST.elapsed+" Sekunden\nTranskript:\n"+ST.text}],
+      'Du bist ein strenger, konstruktiver Rhetorik-Coach. Bewerte eine 60-Sekunden-Stegreifrede fair auf Alltagsniveau. Antworte NUR mit JSON:\n'+
+      '{"note":1-10,"struktur":{"these":true/false,"begruendung":true/false,"beispiel":true/false,"schluss":true/false},"tipps":["max 12 Wörter","max 12 Wörter"],"erster_satz":"stärkere Version des ersten Satzes"}',900);
+    ST.ai=parseJSON(txt);
+  }catch(e){ST.aiErr=e.message;}
+  ST.aiLoad=false;render();
+}
+function renderSteg(){
+  let h="";
+  if(ST.phase==="idle"){
+    h+='<p class="meta">DEIN THEMA</p>';
+    h+='<div class="card"><div class="topic">'+esc(ST.topic)+'</div></div>';
+    h+='<div class="row"><button class="btn ghost" onclick="stegNew()">↻ Anderes Thema</button>';
+    h+='<button class="btn ghost" onclick="stegPrep()">30 s Denkzeit</button></div>';
+    h+='<button class="btn primary" onclick="stegTalk()">Sofort sprechen (60 s)</button>';
+    h+='<p class="why">Ablauf: Feld antippen → Mikrofon auf der iOS-Tastatur → frei sprechen → Fertig. Ziel ist nicht perfekt, sondern 60 Sekunden am Stück.</p>';
+  }else if(ST.phase==="prep"){
+    h+='<div class="card"><div class="topic">'+esc(ST.topic)+'</div></div>';
+    h+='<div class="timer" id="timer">30 s Denkzeit</div>';
+    h+='<button class="btn primary" onclick="stegTalk()">Bereit — jetzt sprechen</button>';
+  }else if(ST.phase==="talk"){
+    h+='<div class="card"><div class="topic">'+esc(ST.topic)+'</div></div>';
+    h+='<div class="timer" id="timer">60 s</div>';
+    h+='<textarea id="stegtext" placeholder="Feld antippen und per Tastatur-Mikrofon sprechen …" oninput="ST.text=this.value">'+esc(ST.text)+'</textarea>';
+    if(SR)h+='<button class="btn ghost" id="micbtn" onclick="record(t=>{const b=$(\'stegtext\');b.value=(b.value?b.value+\' \':\'\')+t;ST.text=b.value;})">🎙 Web-Aufnahme (falls verfügbar)</button><p class="why" id="micerr" style="color:var(--red)"></p>';
+    h+='<button class="btn primary" onclick="stegDone()">Fertig &amp; auswerten</button>';
+  }else{
+    const r=ST.res;
+    h+='<p class="meta">AUSWERTUNG</p>';
+    h+='<div class="card"><div class="stat">';
+    h+='<div><b>'+r.fillers.length+'</b><span>Füllwörter</span></div>';
+    h+='<div><b>'+r.per100+'</b><span>pro 100 Wörter</span></div>';
+    h+='<div><b>'+r.wpm+'</b><span>Wörter/Min</span></div></div>';
+    if(r.avgSent>22)h+='<p class="why">Ø Satzlänge '+r.avgSent+' Wörter — kürzere Sätze wirken stärker.</p>';
+    h+='<p class="why" style="margin-top:10px">'+highlight(ST.text)+'</p>';
+    h+='<p class="mono" style="margin-top:8px">Hinweis: Das iOS-Diktat verschluckt „Ähm“ — gezählt werden die Weichmacher (halt, quasi, irgendwie …).</p></div>';
+    if(ST.aiLoad)h+='<div class="card"><p class="why">Coach denkt nach …</p></div>';
+    if(ST.aiErr)h+='<div class="card"><p class="why" style="color:var(--red)">'+esc(ST.aiErr)+'</p></div>';
+    if(ST.ai){
+      const a=ST.ai,st=a.struktur||{};
+      const tags=[["These",st.these],["Begründung",st.begruendung],["Beispiel",st.beispiel],["Schluss",st.schluss]];
+      h+='<div class="card"><div class="score">'+esc(String(a.note||"–"))+' / 10</div><div class="center" style="margin-top:6px">';
+      tags.forEach(([n,ok])=>{h+='<span class="tag '+(ok?"ok":"no")+'">'+(ok?"✓ ":"✗ ")+n+'</span>';});
+      h+='</div>';
+      (a.tipps||[]).slice(0,2).forEach(t=>{h+='<p class="why">→ '+esc(t)+'</p>';});
+      if(a.erster_satz)h+='<p class="why" style="margin-top:10px"><b>Stärkerer Einstieg:</b> „'+esc(a.erster_satz)+'“</p>';
+      h+='</div>';
+    }
+    h+='<button class="btn primary" onclick="stegNew()">Nächstes Thema</button>';
+  }
+  $("main").innerHTML=h;
+}
+
+/* ================= Konter ================= */
+let K={phase:"idle",ein:pick(EINWAENDE),text:"",ai:null,aiLoad:false,aiErr:""};
+function konterNew(){stopTimer();K={phase:"idle",ein:pick(EINWAENDE,K.ein),text:"",ai:null,aiLoad:false,aiErr:""};render();}
+function konterStart(){
+  K.phase="talk";render();
+  startTimer(20,l=>{const t=$("timer");if(t){t.textContent=l+" s";t.classList.toggle("over",l<=5);}},
+    ()=>{const t=$("timer");if(t){t.textContent="Zeit um — antworte trotzdem";t.classList.add("over");}});
+}
+async function konterDone(){
+  stopTimer();
+  K.text=$("kontertext")?$("kontertext").value.trim():K.text;
+  if(!K.text){K.phase="talk";render();return;}
+  K.phase="result";bumpStreak();render();
+  if(!apiKey)return;
+  K.aiLoad=true;render();
+  try{
+    const txt=await askKI([{role:"user",content:'Einwand: "'+K.ein+'"\nAntwort des Nutzers: "'+K.text+'"'}],
+      'Du bist Schlagfertigkeits-Coach. Bewerte die Antwort auf den Einwand. Antworte NUR mit JSON:\n'+
+      '{"wirkung":1-10,"kommentar":"1 kurzer Satz auf Deutsch","besser":["Konterbeispiel (Technikname)","Konterbeispiel (Technikname)"]}\n'+
+      'Techniken: Rückfrage, Zustimmen & Drehen, Umdeuten, Konkretisieren, Nutzen-Brücke.',700);
+    K.ai=parseJSON(txt);
+  }catch(e){K.aiErr=e.message;}
+  K.aiLoad=false;render();
+}
+function renderKonter(){
+  let h="";
+  if(K.phase==="idle"){
+    h+='<p class="meta">DER ANGRIFF</p>';
+    h+='<div class="card"><div class="topic">„'+esc(K.ein)+'“</div></div>';
+    h+='<div class="row"><button class="btn ghost" onclick="konterNew()">↻ Anderer Einwand</button>';
+    h+='<button class="btn primary" onclick="konterStart()">Kontern (20 s)</button></div>';
+    h+='<div class="card"><h3>Die 5 Techniken</h3>';
+    TECHNIKEN.forEach(t=>{h+='<p class="why"><b>'+esc(t.n)+':</b> „'+esc(t.p)+'“ — '+esc(t.w)+'</p>';});
+    h+='</div>';
+  }else if(K.phase==="talk"){
+    h+='<div class="card"><div class="topic">„'+esc(K.ein)+'“</div></div>';
+    h+='<div class="timer" id="timer">20 s</div>';
+    h+='<textarea id="kontertext" placeholder="Dein Konter — sprechen (Tastatur-Mikro) oder tippen" oninput="K.text=this.value">'+esc(K.text)+'</textarea>';
+    h+='<button class="btn primary" onclick="konterDone()">Fertig</button>';
+  }else{
+    h+='<p class="meta">EINWAND</p><div class="card"><p class="why">„'+esc(K.ein)+'“</p>';
+    h+='<p class="why" style="margin-top:8px"><b>Deine Antwort:</b> „'+esc(K.text)+'“</p></div>';
+    if(K.aiLoad)h+='<div class="card"><p class="why">Coach denkt nach …</p></div>';
+    if(K.aiErr)h+='<div class="card"><p class="why" style="color:var(--red)">'+esc(K.aiErr)+'</p></div>';
+    if(K.ai){
+      h+='<div class="card"><div class="score">'+esc(String(K.ai.wirkung||"–"))+' / 10</div>';
+      if(K.ai.kommentar)h+='<p class="why" class="center">'+esc(K.ai.kommentar)+'</p>';
+      (K.ai.besser||[]).slice(0,2).forEach(b=>{h+='<p class="why">→ '+esc(b)+'</p>';});
+      h+='</div>';
+    }
+    if(!apiKey){
+      const t1=TECHNIKEN[Math.floor(Math.random()*TECHNIKEN.length)];
+      h+='<div class="card"><p class="why"><b>Probier als Nächstes:</b> '+esc(t1.n)+' — „'+esc(t1.p)+'“</p></div>';
+    }
+    h+='<button class="btn primary" onclick="konterNew()">Nächster Einwand</button>';
+  }
+  $("main").innerHTML=h;
+}
+
+/* ================= Struktur (PREP) ================= */
+let P={sit:pick(SITUATIONEN),vals:["","","",""],ai:null,aiLoad:false,aiErr:"",checked:false};
+const PREPLBL=[["Punkt","Deine Kernaussage in einem Satz"],["Begründung","Warum? (weil …)"],["Beispiel","Konkret: Zahl, Fall, Erlebnis"],["Punkt","Schluss: Kernaussage + Aufforderung"]];
+function prepNew(){P={sit:pick(SITUATIONEN,P.sit),vals:["","","",""],ai:null,aiLoad:false,aiErr:"",checked:false};render();}
+async function prepCheck(){
+  for(let i=0;i<4;i++)P.vals[i]=($("prep"+i)||{}).value||"";
+  P.checked=true;bumpStreak();render();
+  if(!apiKey)return;
+  P.aiLoad=true;render();
+  try{
+    const txt=await askKI([{role:"user",content:"Situation: "+P.sit+"\nPunkt: "+P.vals[0]+"\nBegründung: "+P.vals[1]+"\nBeispiel: "+P.vals[2]+"\nSchlusspunkt: "+P.vals[3]}],
+      'Du prüfst das PREP-Schema (Punkt, Begründung, Beispiel, Punkt). Antworte NUR mit JSON:\n'+
+      '{"check":[{"ok":true/false,"tipp":"max 10 Wörter"},{"ok":true/false,"tipp":"…"},{"ok":true/false,"tipp":"…"},{"ok":true/false,"tipp":"…"}],"straffer":"die vier Sätze als knappe, starke Version"}',900);
+    P.ai=parseJSON(txt);
+  }catch(e){P.aiErr=e.message;}
+  P.aiLoad=false;render();
+}
+function renderPrep(){
+  let h='<p class="meta">SITUATION</p><div class="card"><div class="topic">'+esc(P.sit)+'</div></div>';
+  PREPLBL.forEach(([n,hint],i)=>{
+    const chk=P.ai&&P.ai.check&&P.ai.check[i];
+    h+='<div class="card"><p class="why"><b>'+(i+1)+'. '+n+'</b> — '+hint+'</p>';
+    h+='<input type="text" id="prep'+i+'" value="'+esc(P.vals[i])+'">';
+    if(P.checked&&!P.ai&&P.vals[i].trim().split(/\s+/).length<4)h+='<p class="why" style="color:var(--red)">Zu dünn — mindestens ein ganzer Satz.</p>';
+    if(chk)h+='<p class="why" style="color:'+(chk.ok?"var(--green)":"var(--red)")+'">'+(chk.ok?"✓":"✗")+' '+esc(chk.tipp||"")+'</p>';
+    h+='</div>';
+  });
+  if(P.aiLoad)h+='<div class="card"><p class="why">Coach denkt nach …</p></div>';
+  if(P.aiErr)h+='<div class="card"><p class="why" style="color:var(--red)">'+esc(P.aiErr)+'</p></div>';
+  if(P.ai&&P.ai.straffer)h+='<div class="card"><p class="why"><b>Straffe Version:</b> '+esc(P.ai.straffer)+'</p></div>';
+  h+='<div class="row"><button class="btn ghost" onclick="prepNew()">↻ Neue Situation</button>';
+  h+='<button class="btn primary" onclick="prepCheck()">Prüfen</button></div>';
+  $("main").innerHTML=h;
+}
+
+/* ================= Verlauf ================= */
+function renderVerlauf(){
+  const hist=S.history.slice(-20);
+  let h='<p class="meta">FÜLLWÖRTER PRO 100 WÖRTER — LETZTE '+hist.length+' REDEN</p>';
+  if(hist.length<2){
+    h+='<div class="card"><p class="why">Noch zu wenig Daten. Nach zwei Stegreifreden startet hier deine Kurve.</p></div>';
+  }else{
+    const W=480,H=110,max=Math.max(4,...hist.map(x=>x.per100));
+    const pts=hist.map((x,i)=>[(i/(hist.length-1))*(W-20)+10, H-8-(x.per100/max)*(H-20)]);
+    let svg='<svg class="chart" viewBox="0 0 '+W+' '+H+'">';
+    svg+='<polyline fill="none" stroke="#2563eb" stroke-width="2.5" points="'+pts.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ")+'"/>';
+    pts.forEach(p=>{svg+='<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="3.5" fill="#1d4ed8"/>';});
+    svg+='</svg>';
+    h+='<div class="card">'+svg+'<p class="mono center">runter = besser</p></div>';
+  }
+  const n=S.history.length;
+  const avg=n?Math.round(S.history.reduce((a,x)=>a+x.per100,0)/n*10)/10:0;
+  const wpm=n?Math.round(S.history.reduce((a,x)=>a+x.wpm,0)/n):0;
+  h+='<div class="card"><div class="stat">';
+  h+='<div><b>'+n+'</b><span>Reden</span></div>';
+  h+='<div><b>'+avg+'</b><span>Ø Füllw./100</span></div>';
+  h+='<div><b>'+wpm+'</b><span>Ø Wörter/Min</span></div></div></div>';
+  h+='<div class="card"><p class="why"><b>Richtwerte:</b> unter 2 Füllwörter pro 100 Wörter ist stark. 110–150 Wörter/Min ist angenehmes Sprechtempo. Pausen sind keine Fehler — sie ersetzen das Ähm.</p></div>';
+  $("main").innerHTML=h;
+}
+
+/* ================= Rede (Audio-Analyse) ================= */
+let R={phase:"idle",script:"",chunks:[],blob:null,url:"",mime:"",rms:[],t0:0,dur:0,met:null,ai:null,aiLoad:false,aiErr:"",err:""};
+let rMedia=null,rRec=null,rCtx=null,rTimer=null;
+
+function redePickMime(){
+  const c=["audio/mp4","audio/webm;codecs=opus","audio/webm"];
+  for(const m of c){try{if(window.MediaRecorder&&MediaRecorder.isTypeSupported(m))return m;}catch(e){}}
+  return "";
+}
+async function redeStart(){
+  R.err="";R.ai=null;R.aiErr="";R.met=null;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.MediaRecorder){
+    R.err="Dieses Gerät stellt kein Aufnahme-API bereit.";render();return;
+  }
+  try{rMedia=await navigator.mediaDevices.getUserMedia({audio:true});}
+  catch(e){R.err="Mikrofon-Zugriff abgelehnt. Beim ersten Mal fragt iOS nach — sonst: Einstellungen → Safari (bzw. die Web-App) → Mikrofon erlauben.";render();return;}
+  const AC=window.AudioContext||window.webkitAudioContext;
+  rCtx=new AC();
+  const src=rCtx.createMediaStreamSource(rMedia);
+  const an=rCtx.createAnalyser();an.fftSize=2048;src.connect(an);
+  const buf=new Uint8Array(an.fftSize);
+  R.rms=[];R.chunks=[];R.mime=redePickMime();
+  try{rRec=R.mime?new MediaRecorder(rMedia,{mimeType:R.mime}):new MediaRecorder(rMedia);}
+  catch(e){rRec=new MediaRecorder(rMedia);}
+  R.mime=rRec.mimeType||R.mime||"audio/mp4";
+  rRec.ondataavailable=e=>{if(e.data&&e.data.size)R.chunks.push(e.data);};
+  rRec.onstop=redeFinalize;
+  rRec.start(1000);
+  R.t0=Date.now();R.phase="rec";render();
+  rTimer=setInterval(()=>{
+    an.getByteTimeDomainData(buf);
+    let sum=0;for(let i=0;i<buf.length;i++){const v=(buf[i]-128)/128;sum+=v*v;}
+    const rms=Math.sqrt(sum/buf.length);
+    R.rms.push(rms);
+    const el=$("rl_bar");if(el)el.style.width=Math.min(100,Math.round(rms*280))+"%";
+    const tt=$("rl_timer");if(tt){const sec=Math.round((Date.now()-R.t0)/1000);tt.textContent=Math.floor(sec/60)+":"+String(sec%60).padStart(2,"0");
+      if(sec>=300){redeStop();}}
+  },100);
+}
+function redeStop(){
+  if(rTimer){clearInterval(rTimer);rTimer=null;}
+  try{rRec&&rRec.state!=="inactive"&&rRec.stop();}catch(e){}
+  try{rMedia&&rMedia.getTracks().forEach(t=>t.stop());}catch(e){}
+  try{rCtx&&rCtx.close();}catch(e){}
+}
+function redeFinalize(){
+  R.dur=Math.max(1,Math.round((Date.now()-R.t0)/1000));
+  if(R.url)try{URL.revokeObjectURL(R.url);}catch(e){}
+  R.blob=new Blob(R.chunks,{type:R.mime});
+  R.url=URL.createObjectURL(R.blob);
+  R.met=redeMetrics(R.rms,R.dur);
+  R.phase="done";bumpStreak();render();
+}
+function redeMetrics(rms,dur){
+  if(!rms.length)return null;
+  const sorted=[...rms].sort((a,b)=>a-b);
+  const q=p=>sorted[Math.min(sorted.length-1,Math.floor(p*sorted.length))];
+  const floor=q(0.10), peak=q(0.95);
+  const thr=floor+Math.max(0.008,(peak-floor)*0.18);
+  // führende/abschließende Stille abschneiden
+  let a=0,b=rms.length-1;
+  while(a<b&&rms[a]<thr)a++;
+  while(b>a&&rms[b]<thr)b--;
+  const core=rms.slice(a,b+1);
+  const pauses=[];let run=0,voiced=0;
+  core.forEach(v=>{
+    if(v<thr){run++;}
+    else{voiced++;if(run>=6)pauses.push(run/10);run=0;}
+  });
+  const speakPct=core.length?Math.round(voiced/core.length*100):0;
+  const speakSec=Math.max(1,Math.round(core.length/10));
+  const voicedVals=core.filter(v=>v>=thr);
+  const mean=voicedVals.reduce((x,y)=>x+y,0)/Math.max(1,voicedVals.length);
+  const sd=Math.sqrt(voicedVals.reduce((x,y)=>x+(y-mean)*(y-mean),0)/Math.max(1,voicedVals.length));
+  const cv=Math.round(sd/Math.max(0.0001,mean)*100);
+  const longest=pauses.length?Math.max(...pauses):0;
+  const avg=pauses.length?pauses.reduce((x,y)=>x+y,0)/pauses.length:0;
+  return{dur:dur,speakSec:speakSec,speakPct:speakPct,
+    pauseN:pauses.length,pausePerMin:Math.round(pauses.length/(speakSec/60)*10)/10,
+    pauseAvg:Math.round(avg*10)/10,pauseMax:Math.round(longest*10)/10,cv:cv};
+}
+function redeDynTxt(cv){
+  if(cv<12)return"sehr monoton — mehr Betonung wagen";
+  if(cv<22)return"eher gleichförmig — wichtige Wörter lauter setzen";
+  if(cv<45)return"lebendige Dynamik";
+  return"stark schwankend — evtl. Mikrofonabstand halten";
+}
+function redePauseTxt(m){
+  if(m.pauseN===0)return"Keine hörbare Pause — du sprichst durch. Nach jedem Kernsatz bewusst 1 Sekunde stehen lassen.";
+  if(m.pausePerMin<2)return"Sehr wenige Pausen ("+m.pausePerMin+"/Min). Pausen sind dein Punkt am Satzende — mehr davon.";
+  if(m.pauseMax>4)return"Längste Pause "+m.pauseMax+" s — das wirkt wie Fadenriss. Kürzere, bewusste Pausen (1–2 s) wirken souveräner.";
+  return"Pausenbild solide: "+m.pausePerMin+" Pausen/Min, Ø "+m.pauseAvg+" s.";
+}
+async function redeAI(){
+  if(provider!=="gemini"){R.aiErr="Audio-Feedback läuft nur über Gemini (Anbieter in den Einstellungen umstellen).";render();return;}
+  if(!apiKey){R.aiErr="Kein API-Key hinterlegt (⇩ oben rechts).";render();return;}
+  if(!R.blob){return;}
+  if(R.blob.size>15*1024*1024){R.aiErr="Aufnahme zu groß — bitte unter ~4 Minuten bleiben.";render();return;}
+  R.aiLoad=true;R.aiErr="";render();
+  try{
+    const b64=await new Promise((res,rej)=>{
+      const fr=new FileReader();
+      fr.onload=()=>res(String(fr.result).split(",")[1]);
+      fr.onerror=()=>rej(new Error("Aufnahme konnte nicht gelesen werden"));
+      fr.readAsDataURL(R.blob);
+    });
+    const sys='Du bist ein strenger, konstruktiver Rhetorik-Coach. Du hörst eine geübte Rede (Deutsch). Antworte NUR mit JSON:\n'+
+      '{"note":1-10,"fuellwoerter":{"anzahl":Zahl,"beispiele":["…"]},"tempo":"Befund max 12 Wörter","betonung":"Befund max 12 Wörter","staerken":["max 10 Wörter"],"verbesserungen":["max 12 Wörter","max 12 Wörter"]'+(R.script.trim()?',"manuskript":"Abweichungen vom Manuskript, max 15 Wörter"':'')+'}\n'+
+      'Füllwörter: ähm, äh, halt, quasi, sozusagen, irgendwie usw. — zähle sie über die ganze Aufnahme.';
+    const userTxt=(R.script.trim()?"Manuskript:\n"+R.script.trim()+"\n\n":"")+"Analysiere die Aufnahme.";
+    const parts=[{inline_data:{mime_type:R.mime.split(";")[0],data:b64}},{text:userTxt}];
+    const txt=await geminiRaw(parts,sys,900);
+    R.ai=parseJSON(txt);
+  }catch(e){R.aiErr=e.message;}
+  R.aiLoad=false;render();
+}
+async function geminiRaw(parts,system,maxTokens){
+  const payload=JSON.stringify({
+    system_instruction:{parts:[{text:system}]},
+    contents:[{role:"user",parts:parts}],
+    generationConfig:{maxOutputTokens:Math.max(1024,maxTokens||800)}
+  });
+  const tryModel=async(model)=>{
+    let res;
+    try{
+      res=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent",
+        {method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},body:payload});
+    }catch(netErr){const err=new Error("Netzwerkfehler: Anfrage kam nicht bei Google an.");err.code=0;throw err;}
+    if(!res.ok){
+      let msg="Server antwortet mit "+res.status;
+      try{const eb=await res.json();if(eb&&eb.error&&eb.error.message)msg=eb.error.message;}catch(_e){}
+      const err=new Error(msg);err.code=res.status;throw err;
+    }
+    const d=await res.json();
+    const c=d.candidates&&d.candidates[0];
+    const txt=((c&&c.content&&c.content.parts)||[]).map(p=>p.text||"").join("\n");
+    if(!txt)throw new Error("leere Antwort (Tageslimit erreicht?)");
+    return txt;
+  };
+  const remember=m=>{gModel=m;try{localStorage.setItem(KEY+":gmodel",m);}catch(_e){}};
+  const modelGone=e=>e.code===404||/not (available|found|supported)|deprecated|no longer|does not exist|invalid argument|mime/i.test(e.message||"");
+  const overloaded=e=>e.code===503||e.code===429||/high demand|overloaded|try again|temporar|unavailable|resource.?exhaust|quota/i.test(e.message||"");
+  const cands=[...new Set([gModel,"gemini-flash-latest","gemini-3.7-flash","gemini-3.6-flash",
+    "gemini-flash-lite-latest","gemini-2.5-flash-lite","gemini-2.5-flash"].filter(Boolean))];
+  let lastErr=null,sawOverload=false;
+  for(const m of cands){
+    try{const t=await tryModel(m);remember(m);return t;}
+    catch(e){
+      if(modelGone(e)){lastErr=lastErr||e;continue;}
+      if(overloaded(e)){sawOverload=true;lastErr=e;continue;}
+      throw e;
+    }
+  }
+  if(sawOverload){
+    await new Promise(r=>setTimeout(r,2500));
+    for(const m of cands){try{const t=await tryModel(m);remember(m);return t;}catch(e){lastErr=e;}}
+    throw new Error("Google meldet Überlastung — kurz warten und nochmal.");
+  }
+  throw lastErr||new Error("kein Gemini-Modell verfügbar");
+}
+function renderRede(){
+  let h="";
+  if(R.phase==="idle"){
+    h+='<p class="meta">DEINE REDE ÜBEN</p>';
+    h+='<div class="card"><p class="why">Sprich deine Rede laut, die App misst mit: Pausen, Sprechanteil, Lautstärke-Dynamik. Danach optional KI-Feedback zu Füllwörtern (inklusive Ähm), Tempo und Betonung.</p>';
+    h+='<textarea id="redescript" placeholder="Optional: Manuskript oder Stichpunkte hier einfügen — die KI prüft dann auch Abweichungen." oninput="R.script=this.value">'+esc(R.script)+'</textarea></div>';
+    h+='<button class="rec idle" onclick="R.script=($(\'redescript\')||{value:R.script}).value;redeStart()">Start</button>';
+    if(R.err)h+='<p class="why center" style="color:var(--red)">'+esc(R.err)+'</p>';
+    h+='<p class="mono center" style="margin-top:12px">Max. 5 Minuten. Aufnahme bleibt auf dem Gerät, bis du sie zur KI schickst.</p>';
+  }else if(R.phase==="rec"){
+    h+='<p class="meta">AUFNAHME LÄUFT</p>';
+    h+='<div class="timer" id="rl_timer">0:00</div>';
+    h+='<div class="lvlwrap"><div class="lvl" id="rl_bar"></div></div>';
+    h+='<button class="rec" onclick="redeStop()">Stopp</button>';
+    h+='<p class="mono center" style="margin-top:12px">Sprich wie vor Publikum — nicht ins Handy flüstern.</p>';
+  }else{
+    const m=R.met;
+    h+='<p class="meta">MESSWERTE</p>';
+    if(m){
+      h+='<div class="card"><div class="stat">';
+      h+='<div><b>'+Math.floor(m.dur/60)+":"+String(m.dur%60).padStart(2,"0")+'</b><span>Dauer</span></div>';
+      h+='<div><b>'+m.pauseN+'</b><span>Pausen</span></div>';
+      h+='<div><b>'+m.speakPct+'%</b><span>Sprechanteil</span></div></div>';
+      h+='<p class="why">→ '+esc(redePauseTxt(m))+'</p>';
+      h+='<p class="why">→ <b>Dynamik '+m.cv+':</b> '+esc(redeDynTxt(m.cv))+'</p>';
+      h+='<p class="mono" style="margin-top:8px">Lautstärke wird relativ gemessen (Schwankung statt Absolutpegel) — Mikrofonabstand möglichst konstant halten.</p></div>';
+    }
+    h+='<div class="card"><p class="why"><b>Anhören</b> — das ehrlichste Feedback:</p><audio controls src="'+R.url+'"></audio></div>';
+    if(!R.ai&&!R.aiLoad)h+='<button class="btn primary" onclick="redeAI()">✦ KI-Feedback holen (Aufnahme geht an Google)</button>';
+    if(R.aiLoad)h+='<div class="card"><p class="why">Coach hört zu … bei längeren Reden dauert das einen Moment.</p></div>';
+    if(R.aiErr)h+='<div class="card"><p class="why" style="color:var(--red)">'+esc(R.aiErr)+'</p><button class="btn ghost" onclick="redeAI()">Nochmal versuchen</button></div>';
+    if(R.ai){
+      const a=R.ai,f=a.fuellwoerter||{};
+      h+='<div class="card"><div class="score">'+esc(String(a.note||"–"))+' / 10</div>';
+      h+='<p class="why"><b>Füllwörter:</b> '+esc(String(f.anzahl!=null?f.anzahl:"–"))+(f.beispiele&&f.beispiele.length?' ('+esc(f.beispiele.slice(0,4).join(", "))+')':'')+'</p>';
+      if(a.tempo)h+='<p class="why"><b>Tempo:</b> '+esc(a.tempo)+'</p>';
+      if(a.betonung)h+='<p class="why"><b>Betonung:</b> '+esc(a.betonung)+'</p>';
+      if(a.manuskript)h+='<p class="why"><b>Manuskript:</b> '+esc(a.manuskript)+'</p>';
+      (a.staerken||[]).slice(0,2).forEach(t=>{h+='<p class="why" style="color:var(--green)">✓ '+esc(t)+'</p>';});
+      (a.verbesserungen||[]).slice(0,3).forEach(t=>{h+='<p class="why">→ '+esc(t)+'</p>';});
+      h+='</div>';
+    }
+    h+='<div class="row"><button class="btn ghost" onclick="R.phase=\'idle\';render()">Neue Aufnahme</button>';
+    h+='<button class="btn primary" onclick="redeAI()"'+(R.ai||R.aiLoad?' disabled':'')+'>Nochmal analysieren</button></div>';
+  }
+  $("main").innerHTML=h;
+}
+
+/* ================= Sicherung ================= */
+function openBackup(){$("exportbox").value=JSON.stringify(S);$("keybox").value=apiKey;$("provbox").value=provider;provChanged();$("backup").classList.add("show");}
+function closeBackup(){$("backup").classList.remove("show");render();}
+function copyExport(){
+  const t=JSON.stringify(S);
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(
+    ()=>{$("notice").textContent="Code kopiert.";},()=>{$("notice").textContent="Feld antippen und alles markieren.";});}
+  else{$("notice").textContent="Feld antippen und alles markieren.";}
+}
+function doImport(){
+  try{
+    const o=JSON.parse($("importbox").value.trim());
+    if(!o||!o.stats)throw new Error("leer");
+    S=Object.assign({history:[],stats:{streak:0,lastDay:null,sessions:0}},o);
+    save();$("importbox").value="";closeBackup();
+  }catch(e){$("notice").textContent="Code war unvollständig — bitte komplett einfügen.";}
+}
+function provChanged(){
+  provider=$("provbox").value;
+  try{localStorage.setItem(KEY+":prov",provider);}catch(e){}
+  $("keybox").placeholder=provider==="gemini"?"AQ.… oder AIza…":"sk-ant-…";
+  $("keyhint").textContent=provider==="gemini"
+    ?"Kostenlosen Key holen: aistudio.google.com → „Get API key“. Hast du den English Trainer auf derselben GitHub-Seite, wird dessen Key automatisch übernommen."
+    :"Key holen: console.anthropic.com → API Keys. Braucht Guthaben.";
+}
+async function saveKey(){
+  apiKey=$("keybox").value.trim();
+  provider=$("provbox").value;
+  try{localStorage.setItem(KEY+":prov",provider);localStorage.setItem(KEY+":key",apiKey);}catch(e){}
+  if(!apiKey){$("notice").textContent="Key entfernt.";return;}
+  $("notice").textContent="Key gespeichert — teste …";
+  try{
+    await askKI([{role:"user",content:"OK?"}],"Antworte nur mit OK.",10);
+    $("notice").textContent="✓ Key funktioniert"+(provider==="gemini"&&gModel?" (Modell: "+gModel+")":"")+" — Coach-Feedback ist frei.";
+  }catch(e){$("notice").textContent="Key gespeichert, aber Test fehlgeschlagen: "+e.message;}
+}
+
+/* ================= Start ================= */
+loadState();render();
+if(storageOk){const si=$("saveinfo");if(si)si.textContent="Automatisches Speichern aktiv";}
+</script>
+</body>
+</html>
