@@ -15,7 +15,9 @@
   --txt:#292524; --dim:#57534e; --faint:#78716c;
   --acc:#2563eb; --acc2:#1d4ed8; --green:#059669; --red:#e11d48;
 }
-*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+/* touch-action:manipulation schaltet den Doppeltipp-Zoom von Safari ab, Zwei-Finger-Zoom
+   bleibt erlaubt. Auf allen Elementen, weil es nicht vererbt wird. */
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:manipulation}
 html,body{margin:0; height:100%; background:var(--bg); color:var(--txt);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 #app{display:flex; flex-direction:column; height:100%; max-width:520px; margin:0 auto}
@@ -129,7 +131,7 @@ svg.chart{width:100%; height:auto; display:block; margin-top:8px}
       <option value="anthropic">Anthropic Claude — bezahlt</option>
     </select>
     <p class="small" id="keyhint"></p>
-    <input type="text" id="keybox" placeholder="API-Key">
+    <input type="text" id="keybox" placeholder="API-Key" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false">
     <button class="btn ghost" onclick="saveKey()">Key speichern &amp; testen</button>
     <p class="mono" id="notice" style="margin-top:12px"></p>
   </div>
@@ -241,7 +243,7 @@ function loadState(){
   try{
     const raw=localStorage.getItem(KEY);
     if(raw)S=Object.assign(S,JSON.parse(raw));
-    apiKey=localStorage.getItem(KEY+":key")||localStorage.getItem(ET+":key")||"";
+    apiKey=cleanKey(localStorage.getItem(KEY+":key")||localStorage.getItem(ET+":key"));
     provider=localStorage.getItem(KEY+":prov")||localStorage.getItem(ET+":prov")||"gemini";
     gModel=localStorage.getItem(KEY+":gmodel")||localStorage.getItem(ET+":gmodel")||"";
     localStorage.setItem(KEY+":probe","1");
@@ -278,8 +280,21 @@ function headline(){
   $("subline").textContent=S.stats.sessions+" ÜBUNGEN · "+S.history.length+" REDEN";
   $("streak").textContent=liveStreak();
 }
+/* Ein Key besteht nur aus sichtbaren ASCII-Zeichen. Alles andere lässt fetch
+   abbrechen, bevor die Anfrage rausgeht — das sah dann aus wie ein
+   Netzwerkfehler („Load failed“). Unsichtbare Zeichen und Leerraum werden still
+   entfernt, alles andere wird benannt statt geraten. */
+function cleanKey(k){return String(k||"").replace(/[\s​-‍⁠﻿]/g,"");}
+function keyProblem(k){
+  const cs=[...String(k||"")], i=cs.findIndex(c=>c<"!"||c>"~");
+  if(i<0)return "";
+  const code="U+"+cs[i].codePointAt(0).toString(16).toUpperCase().padStart(4,"0");
+  return "Der gespeicherte Key enthält an Stelle "+(i+1)+" das Zeichen „"+cs[i]+"“ ("+code+"), das in keinem Key vorkommt. "
+    +"Meist macht die iPhone-Tastatur aus zwei Bindestrichen einen Gedankenstrich. Key am besten in AI Studio kopieren und unter ⇩ einfügen.";
+}
 async function askKI(messages,system,maxTokens){
   if(!apiKey) throw new Error("Kein API-Key hinterlegt (⇩ oben rechts → Key)");
+  const kp=keyProblem(apiKey); if(kp) throw new Error(kp);
   if(provider==="gemini")
     return geminiCall(messages.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]})),system,maxTokens);
   let res;
@@ -758,6 +773,7 @@ async function redeAI(){
 /* Audio (inline_data) und Text laufen über dieselbe Kette. */
 function geminiRaw(parts,system,maxTokens){return geminiCall([{role:"user",parts:parts}],system,maxTokens);}
 async function geminiCall(contents,system,maxTokens){
+  const kp=keyProblem(apiKey); if(kp) throw new Error(kp);
   /* Zwei Lehren aus dem English Trainer:
      1. Neue Flash-Modelle denken vor der Antwort, und diese Denk-Token zählen
         gegen maxOutputTokens. Ohne thinkingBudget:0 kam nach langer Wartezeit
@@ -772,13 +788,19 @@ async function geminiCall(contents,system,maxTokens){
     generationConfig:mitDenken?{maxOutputTokens:want}:{maxOutputTokens:want,thinkingConfig:{thinkingBudget:0}}
   });
   const call=async(model,mitDenken)=>{
+    /* Einmal wiederholen fängt kurze Aussetzer ab, etwa wenn iOS die App
+       beim Warten kurz in den Hintergrund schickt. */
+    const send=()=>fetch("https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent",
+      {method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},body:body(mitDenken)});
     let res;
-    try{
-      res=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent",
-        {method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},body:body(mitDenken)});
-    }catch(netErr){
-      const err=new Error("Netzwerkfehler: Die Anfrage kam gar nicht bei Google an („Load failed“). Häufigste Ursachen: Key-Einschränkung in AI Studio, Werbeblocker/VPN oder kurz kein Netz.");
-      err.code=0;throw err;
+    try{res=await send();}
+    catch(netErr){
+      await new Promise(r=>setTimeout(r,1200));
+      try{res=await send();}
+      catch(netErr2){
+        const err=new Error("Netzwerkfehler: Die Anfrage kam gar nicht bei Google an („Load failed“). Ein falscher Key ist es nicht, der ergäbe eine andere Meldung. Häufigste Ursachen: Inhaltsblocker, Werbeblocker oder VPN auf dem iPhone, gerade kein Netz, oder eine Websites-Beschränkung des Keys in AI Studio. (Technisch: "+((netErr2&&netErr2.message)||netErr2)+")");
+        err.code=0;throw err;
+      }
     }
     if(!res.ok){
       let msg="Server antwortet mit "+res.status;
@@ -919,7 +941,11 @@ function provChanged(){
     :"Key holen: console.anthropic.com → API Keys. Braucht Guthaben.";
 }
 async function saveKey(){
-  apiKey=$("keybox").value.trim();
+  const k=cleanKey($("keybox").value);
+  $("keybox").value=k;
+  const kp=k&&keyProblem(k);
+  if(kp){$("notice").textContent=kp.replace("Der gespeicherte Key","Der eingegebene Key")+" Nicht gespeichert.";return;}
+  apiKey=k;
   provider=$("provbox").value;
   try{localStorage.setItem(KEY+":prov",provider);localStorage.setItem(KEY+":key",apiKey);}catch(e){}
   if(!apiKey){$("notice").textContent="Key entfernt.";return;}
