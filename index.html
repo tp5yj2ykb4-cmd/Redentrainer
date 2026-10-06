@@ -19,8 +19,9 @@
 html,body{margin:0; height:100%; background:var(--bg); color:var(--txt);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 #app{display:flex; flex-direction:column; height:100%; max-width:520px; margin:0 auto}
+/* Safe Area oben: im Home-Bildschirm-Modus lief der Titel sonst unter die Statusleiste. */
 header{display:flex; justify-content:space-between; align-items:center;
-  padding:14px 16px 10px; border-bottom:1px solid var(--panel2)}
+  padding:calc(env(safe-area-inset-top, 0px) + 14px) 16px 10px; border-bottom:1px solid var(--panel2)}
 h1{font-family:Georgia,'Times New Roman',serif; font-size:20px; margin:0; color:#1c1917}
 .sub{font-family:ui-monospace,Menlo,monospace; font-size:10px; letter-spacing:.12em; color:var(--faint); margin-top:3px}
 .pill{display:flex; align-items:center; gap:6px; background:var(--panel); border:1px solid var(--panel2);
@@ -47,8 +48,10 @@ nav button .ic{font-size:18px; display:block; margin-bottom:3px}
 .meta{font-family:ui-monospace,monospace; font-size:11px; color:var(--faint); margin:12px 0 8px}
 .timer{font-family:ui-monospace,monospace; font-size:44px; text-align:center; color:var(--acc2); margin:6px 0}
 .timer.over{color:var(--red)}
+/* 16px: darunter zoomt Safari beim Antippen ins Feld hinein. */
 textarea, input[type=text], select{width:100%; background:var(--bg); border:1px solid var(--line);
-  border-radius:10px; padding:10px 12px; color:var(--txt); font-size:15px; margin-top:8px}
+  border-radius:10px; padding:10px 12px; color:var(--txt); font-size:16px; margin-top:8px;
+  font-family:inherit; -webkit-appearance:none; appearance:none}
 textarea{min-height:110px}
 .why{font-size:13px; color:var(--dim); margin:8px 0 0; line-height:1.45}
 .why b{color:var(--acc2); font-weight:600}
@@ -68,7 +71,8 @@ textarea{min-height:110px}
   font-family:ui-monospace,monospace; font-size:12px; background:var(--panel2); color:var(--dim)}
 .chip.on{background:var(--acc); color:#fff}
 .overlay{position:fixed; inset:0; background:rgba(250,250,249,.98); z-index:20; display:none;
-  flex-direction:column; padding:16px; max-width:520px; margin:0 auto}
+  flex-direction:column; max-width:520px; margin:0 auto;
+  padding:calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px)}
 .overlay.show{display:flex}
 .overlay .body{flex:1; overflow-y:auto}
 .x{background:var(--panel2); border:none; color:var(--txt); border-radius:10px;
@@ -82,7 +86,9 @@ audio{width:100%; margin-top:10px}
 .rec{width:86px; height:86px; border-radius:50%; border:none; background:var(--red); color:#fff;
   font-size:15px; font-weight:700; cursor:pointer; display:block; margin:14px auto 0}
 .rec.idle{background:var(--acc)}
-svg.chart{width:100%; height:120px; margin-top:8px}
+svg.chart{width:100%; height:auto; display:block; margin-top:8px}
+.chart-h{display:flex; justify-content:space-between; align-items:baseline; gap:10px}
+.chart-h b{font-family:ui-monospace,monospace; font-size:13px; color:var(--acc2)}
 </style>
 </head>
 <body>
@@ -251,12 +257,17 @@ function save(){
   }catch(e){}},300);
 }
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"&&storageOk){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}});
+/* setDate statt minus 24 h: an Sommerzeit-Tagen hat ein Tag 23 oder 25 Stunden. */
+function dayStr(back){const d=new Date();d.setDate(d.getDate()-(back||0));return d.toDateString();}
 function bumpStreak(){
-  const today=new Date().toDateString(), yest=new Date(Date.now()-86400000).toDateString();
+  const today=dayStr(0), yest=dayStr(1);
   S.stats.sessions++;
   S.stats.streak=S.stats.lastDay===today?S.stats.streak:(S.stats.lastDay===yest?S.stats.streak+1:1);
   S.stats.lastDay=today; save();
 }
+/* Gespeichert bleibt die Serie stehen, bis wieder geübt wird. Angezeigt wird
+   sie nur, solange sie noch läuft (heute oder gestern geübt). */
+function liveStreak(){const l=S.stats.lastDay;return l===dayStr(0)||l===dayStr(1)?(S.stats.streak||0):0;}
 
 /* ================= Helfer ================= */
 const $=id=>document.getElementById(id);
@@ -265,67 +276,12 @@ function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;","
 function pick(arr,last){let x;do{x=arr[Math.floor(Math.random()*arr.length)];}while(arr.length>1&&x===last);return x;}
 function headline(){
   $("subline").textContent=S.stats.sessions+" ÜBUNGEN · "+S.history.length+" REDEN";
-  $("streak").textContent=S.stats.streak;
+  $("streak").textContent=liveStreak();
 }
 async function askKI(messages,system,maxTokens){
   if(!apiKey) throw new Error("Kein API-Key hinterlegt (⇩ oben rechts → Key)");
-  if(provider==="gemini"){
-    const payload=JSON.stringify({
-      system_instruction:{parts:[{text:system}]},
-      contents:messages.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]})),
-      generationConfig:{maxOutputTokens:Math.max(1024,maxTokens||800)}
-    });
-    const tryModel=async(model)=>{
-      let res;
-      try{
-        res=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent",
-          {method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},body:payload});
-      }catch(netErr){
-        const err=new Error("Netzwerkfehler: Die Anfrage kam gar nicht bei Google an („Load failed“). Häufigste Ursachen: Key-Einschränkung in AI Studio, Werbeblocker/VPN oder kurz kein Netz.");
-        err.code=0;throw err;
-      }
-      if(!res.ok){
-        let msg="Server antwortet mit "+res.status;
-        try{const eb=await res.json();if(eb&&eb.error&&eb.error.message)msg=eb.error.message;}catch(_e){}
-        const err=new Error(msg);err.code=res.status;throw err;
-      }
-      const d=await res.json();
-      const c=d.candidates&&d.candidates[0];
-      const txt=((c&&c.content&&c.content.parts)||[]).map(p=>p.text||"").join("\n");
-      if(!txt)throw new Error("leere Antwort (Tageslimit erreicht?)");
-      return txt;
-    };
-    const remember=m=>{gModel=m;try{localStorage.setItem(KEY+":gmodel",m);}catch(_e){}};
-    const modelGone=e=>e.code===404||/not (available|found|supported)|deprecated|no longer|does not exist/i.test(e.message||"");
-    const overloaded=e=>e.code===503||e.code===429||/high demand|overloaded|try again|temporar|unavailable|resource.?exhaust|quota/i.test(e.message||"");
-    const cands=[...new Set([gModel,"gemini-flash-latest","gemini-3.7-flash","gemini-3.6-flash",
-      "gemini-flash-lite-latest","gemini-2.5-flash-lite","gemini-2.5-flash"].filter(Boolean))];
-    let lastErr=null,sawOverload=false;
-    for(const m of cands){
-      try{const t=await tryModel(m);remember(m);return t;}
-      catch(e){
-        if(modelGone(e)){lastErr=lastErr||e;continue;}
-        if(overloaded(e)){sawOverload=true;lastErr=e;continue;}
-        throw e;
-      }
-    }
-    if(sawOverload){
-      await new Promise(r=>setTimeout(r,2500));
-      for(const m of cands){try{const t=await tryModel(m);remember(m);return t;}catch(e){lastErr=e;}}
-      throw new Error("Google meldet Überlastung auf allen Gratis-Modellen — kurz warten und nochmal.");
-    }
-    try{
-      const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=100",
-        {headers:{"x-goog-api-key":apiKey}});
-      const d=await r.json();
-      const pk=((d.models)||[]).filter(m=>(m.supportedGenerationMethods||[]).includes("generateContent"))
-        .map(m=>String(m.name||"").replace("models/",""))
-        .filter(n=>n.includes("flash")&&!/image|live|tts|audio|embed|veo|imagen|thinking/.test(n))
-        .sort().reverse()[0];
-      if(pk){const t=await tryModel(pk);remember(pk);return t;}
-    }catch(_e){}
-    throw lastErr||new Error("kein Gemini-Modell verfügbar");
-  }
+  if(provider==="gemini")
+    return geminiCall(messages.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]})),system,maxTokens);
   let res;
   try{
     res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
@@ -408,11 +364,15 @@ function syncMic(){
 }
 
 /* ================= Timer ================= */
+/* Gerechnet wird vom Endzeitpunkt aus, nicht durch Herunterzählen: iOS
+   pausiert setInterval im Hintergrund, und nach einem Tabwechsel läuft der
+   Timer so mit der richtigen Restzeit weiter. */
 let TI=null;
-function startTimer(sec,onTick,onDone){
+function startTimer(end,onTick,onDone){
   stopTimer();
-  let left=sec;onTick(left);
-  TI=setInterval(()=>{left--;onTick(left);if(left<=0){stopTimer();onDone();}},1000);
+  const tick=()=>{const left=Math.max(0,Math.ceil((end-Date.now())/1000));onTick(left);
+    if(left<=0){stopTimer();onDone();}};
+  TI=setInterval(tick,250);tick();
 }
 function stopTimer(){if(TI){clearInterval(TI);TI=null;}}
 
@@ -429,26 +389,30 @@ function render(){
 }
 
 /* ================= Stegreif ================= */
-let ST={phase:"idle",topic:pick(THEMEN),text:"",started:0,elapsed:0,left:60,ai:null,aiLoad:false,aiErr:"",res:null};
-function stegNew(){stopTimer();ST={phase:"idle",topic:pick(THEMEN,ST.topic),text:"",started:0,elapsed:0,left:60,ai:null,aiLoad:false,aiErr:"",res:null};render();}
-function stegPrep(){
-  ST.phase="prep";render();
-  startTimer(30,l=>{const t=$("timer");if(t)t.textContent=l+" s Denkzeit";},()=>stegTalk());
-}
-function stegTalk(){
-  stopTimer();ST.phase="talk";ST.started=Date.now();render();
-  startTimer(60,l=>{ST.left=l;const t=$("timer");if(t){t.textContent=l+" s";t.classList.toggle("over",l<=10);}},
+const stegBlank=topic=>({phase:"idle",topic:topic,text:"",started:0,end:0,elapsed:0,warn:"",hi:-1,ai:null,aiLoad:false,aiErr:"",res:null});
+let ST=stegBlank(pick(THEMEN));
+function stegNew(){stopTimer();ST=stegBlank(pick(THEMEN,ST.topic));render();}
+function stegPrep(){stopTimer();ST.phase="prep";ST.end=Date.now()+30000;render();}
+function stegTalk(){stopTimer();ST.phase="talk";ST.started=Date.now();ST.end=ST.started+60000;render();}
+/* Läuft nach jedem Zeichnen der Phase an, auch nach einem Tabwechsel. */
+function stegTimer(){
+  if(TI)return;
+  if(ST.phase==="prep")startTimer(ST.end,l=>{const t=$("timer");if(t)t.textContent=l+" s Denkzeit";},()=>stegTalk());
+  else if(ST.phase==="talk")startTimer(ST.end,
+    l=>{const t=$("timer");if(t){t.textContent=l+" s";t.classList.toggle("over",l<=10);}},
     ()=>{const t=$("timer");if(t){t.textContent="Zeit um — Fertig drücken";t.classList.add("over");}});
 }
 async function stegDone(){
-  stopTimer();
   ST.text=$("stegtext")?$("stegtext").value.trim():ST.text;
+  if(!ST.text){ST.warn="Noch kein Text. Feld antippen, dann das Mikrofon auf der iOS-Tastatur.";render();return;}
+  stopTimer();
+  ST.warn="";
   ST.elapsed=Math.max(5,Math.round((Date.now()-ST.started)/1000));
-  if(!ST.text){ST.phase="talk";render();return;}
   ST.res=analyze(ST.text,Math.min(ST.elapsed,90));
   ST.phase="result";
   S.history.push({d:Date.now(),per100:ST.res.per100,wpm:ST.res.wpm,words:ST.res.words});
   if(S.history.length>200)S.history=S.history.slice(-200);
+  ST.hi=S.history.length-1;
   bumpStreak();render();
   if(!apiKey)return;
   ST.aiLoad=true;render();
@@ -457,6 +421,8 @@ async function stegDone(){
       'Du bist ein strenger, konstruktiver Rhetorik-Coach. Bewerte eine 60-Sekunden-Stegreifrede fair auf Alltagsniveau. Antworte NUR mit JSON:\n'+
       '{"note":1-10,"struktur":{"these":true/false,"begruendung":true/false,"beispiel":true/false,"schluss":true/false},"tipps":["max 12 Wörter","max 12 Wörter"],"erster_satz":"stärkere Version des ersten Satzes"}',900);
     ST.ai=parseJSON(txt);
+    const n=Number(ST.ai&&ST.ai.note), e=S.history[ST.hi];
+    if(e&&n>=1&&n<=10){e.note=n;save();}
   }catch(e){ST.aiErr=e.message;}
   ST.aiLoad=false;render();
 }
@@ -478,6 +444,7 @@ function renderSteg(){
     h+='<div class="timer" id="timer">60 s</div>';
     h+='<textarea id="stegtext" placeholder="Feld antippen und per Tastatur-Mikrofon sprechen …" oninput="ST.text=this.value">'+esc(ST.text)+'</textarea>';
     if(SR)h+='<button class="btn ghost" id="micbtn" onclick="record(t=>{const b=$(\'stegtext\');b.value=(b.value?b.value+\' \':\'\')+t;ST.text=b.value;})">🎙 Web-Aufnahme (falls verfügbar)</button><p class="why" id="micerr" style="color:var(--red)"></p>';
+    if(ST.warn)h+='<p class="why" style="color:var(--red)">'+esc(ST.warn)+'</p>';
     h+='<button class="btn primary" onclick="stegDone()">Fertig &amp; auswerten</button>';
   }else{
     const r=ST.res;
@@ -501,23 +468,27 @@ function renderSteg(){
       if(a.erster_satz)h+='<p class="why" style="margin-top:10px"><b>Stärkerer Einstieg:</b> „'+esc(a.erster_satz)+'“</p>';
       h+='</div>';
     }
+    if(!apiKey)h+='<div class="card"><p class="why">Mit einem API-Key (⇩ oben rechts) bewertet zusätzlich ein KI-Coach Struktur, Note und Einstieg.</p></div>';
     h+='<button class="btn primary" onclick="stegNew()">Nächstes Thema</button>';
   }
   $("main").innerHTML=h;
+  stegTimer();
 }
 
 /* ================= Konter ================= */
-let K={phase:"idle",ein:pick(EINWAENDE),text:"",ai:null,aiLoad:false,aiErr:""};
-function konterNew(){stopTimer();K={phase:"idle",ein:pick(EINWAENDE,K.ein),text:"",ai:null,aiLoad:false,aiErr:""};render();}
-function konterStart(){
-  K.phase="talk";render();
-  startTimer(20,l=>{const t=$("timer");if(t){t.textContent=l+" s";t.classList.toggle("over",l<=5);}},
+const konterBlank=ein=>({phase:"idle",ein:ein,text:"",end:0,warn:"",ai:null,aiLoad:false,aiErr:""});
+let K=konterBlank(pick(EINWAENDE));
+function konterNew(){stopTimer();K=konterBlank(pick(EINWAENDE,K.ein));render();}
+function konterStart(){stopTimer();K.phase="talk";K.end=Date.now()+20000;render();}
+function konterTimer(){
+  if(TI||K.phase!=="talk")return;
+  startTimer(K.end,l=>{const t=$("timer");if(t){t.textContent=l+" s";t.classList.toggle("over",l<=5);}},
     ()=>{const t=$("timer");if(t){t.textContent="Zeit um — antworte trotzdem";t.classList.add("over");}});
 }
 async function konterDone(){
-  stopTimer();
   K.text=$("kontertext")?$("kontertext").value.trim():K.text;
-  if(!K.text){K.phase="talk";render();return;}
+  if(!K.text){K.warn="Noch kein Konter. Feld antippen und sprechen oder tippen.";render();return;}
+  stopTimer();K.warn="";
   K.phase="result";bumpStreak();render();
   if(!apiKey)return;
   K.aiLoad=true;render();
@@ -544,6 +515,7 @@ function renderKonter(){
     h+='<div class="card"><div class="topic">„'+esc(K.ein)+'“</div></div>';
     h+='<div class="timer" id="timer">20 s</div>';
     h+='<textarea id="kontertext" placeholder="Dein Konter — sprechen (Tastatur-Mikro) oder tippen" oninput="K.text=this.value">'+esc(K.text)+'</textarea>';
+    if(K.warn)h+='<p class="why" style="color:var(--red)">'+esc(K.warn)+'</p>';
     h+='<button class="btn primary" onclick="konterDone()">Fertig</button>';
   }else{
     h+='<p class="meta">EINWAND</p><div class="card"><p class="why">„'+esc(K.ein)+'“</p>';
@@ -552,7 +524,7 @@ function renderKonter(){
     if(K.aiErr)h+='<div class="card"><p class="why" style="color:var(--red)">'+esc(K.aiErr)+'</p></div>';
     if(K.ai){
       h+='<div class="card"><div class="score">'+esc(String(K.ai.wirkung||"–"))+' / 10</div>';
-      if(K.ai.kommentar)h+='<p class="why" class="center">'+esc(K.ai.kommentar)+'</p>';
+      if(K.ai.kommentar)h+='<p class="why center">'+esc(K.ai.kommentar)+'</p>';
       (K.ai.besser||[]).slice(0,2).forEach(b=>{h+='<p class="why">→ '+esc(b)+'</p>';});
       h+='</div>';
     }
@@ -563,6 +535,7 @@ function renderKonter(){
     h+='<button class="btn primary" onclick="konterNew()">Nächster Einwand</button>';
   }
   $("main").innerHTML=h;
+  konterTimer();
 }
 
 /* ================= Struktur (PREP) ================= */
@@ -587,7 +560,9 @@ function renderPrep(){
   PREPLBL.forEach(([n,hint],i)=>{
     const chk=P.ai&&P.ai.check&&P.ai.check[i];
     h+='<div class="card"><p class="why"><b>'+(i+1)+'. '+n+'</b> — '+hint+'</p>';
-    h+='<input type="text" id="prep'+i+'" value="'+esc(P.vals[i])+'">';
+    /* oninput hält den Zustand aktuell — vorher wurden die Felder erst beim
+       Prüfen gelesen, und ein Tabwechsel löschte alles Eingetippte. */
+    h+='<input type="text" id="prep'+i+'" value="'+esc(P.vals[i])+'" oninput="P.vals['+i+']=this.value">';
     if(P.checked&&!P.ai&&P.vals[i].trim().split(/\s+/).length<4)h+='<p class="why" style="color:var(--red)">Zu dünn — mindestens ein ganzer Satz.</p>';
     if(chk)h+='<p class="why" style="color:'+(chk.ok?"var(--green)":"var(--red)")+'">'+(chk.ok?"✓":"✗")+' '+esc(chk.tipp||"")+'</p>';
     h+='</div>';
@@ -601,27 +576,51 @@ function renderPrep(){
 }
 
 /* ================= Verlauf ================= */
+/* Verlauf: Stegreif-Einträge haben kein t (so war es schon immer),
+   Aufnahmen aus dem Tab Rede tragen t:"rede". */
+const isRede=x=>x.t==="rede";
+function chartHtml(vals,o){
+  const W=480,H=120,pl=10,pr=10,pt=10,pb=14;
+  const top=Math.max(o.min||1,o.hi||0,o.line||0,...vals)*1.15;
+  /* Füllwörter und Pausen beginnen bei 0. Beim Tempo (Werte um 140) würde
+     das die Kurve flach an den oberen Rand drücken, deshalb dort knapp unter
+     dem kleinsten Wert bzw. dem Zielbereich anfangen. */
+  const bot=o.fromZero===false?Math.min(o.lo!=null?o.lo:Infinity,...vals)*0.85:0;
+  const y=v=>H-pb-((v-bot)/(top-bot))*(H-pt-pb);
+  const x=i=>pl+i/(vals.length-1)*(W-pl-pr);
+  let s='<svg class="chart" viewBox="0 0 '+W+' '+H+'">';
+  if(o.hi!=null)s+='<rect x="0" y="'+y(o.hi).toFixed(1)+'" width="'+W+'" height="'+(y(Math.max(bot,o.lo||0))-y(o.hi)).toFixed(1)+'" fill="#059669" opacity=".09"/>';
+  if(o.line!=null)s+='<line x1="0" x2="'+W+'" y1="'+y(o.line).toFixed(1)+'" y2="'+y(o.line).toFixed(1)+'" stroke="#e11d48" stroke-dasharray="5 5" stroke-width="1.2"/>';
+  s+='<line x1="0" x2="'+W+'" y1="'+(H-pb)+'" y2="'+(H-pb)+'" stroke="#d6d3d1" stroke-width="1"/>';
+  s+='<polyline fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round" points="'
+    +vals.map((v,i)=>x(i).toFixed(1)+","+y(v).toFixed(1)).join(" ")+'"/>';
+  vals.forEach((v,i)=>{s+='<circle cx="'+x(i).toFixed(1)+'" cy="'+y(v).toFixed(1)+'" r="3.5" fill="#1d4ed8"/>';});
+  return s+'</svg>';
+}
+function chartCard(title,vals,o,hint,empty){
+  let h='<div class="card"><div class="chart-h"><h3>'+title+'</h3>'
+    +(vals.length?'<b>zuletzt '+vals[vals.length-1]+'</b>':'')+'</div>';
+  h+=vals.length<2?'<p class="why">'+empty+'</p>'
+    :chartHtml(vals,o)+'<p class="mono" style="margin-top:6px;line-height:1.5">'+hint+'</p>';
+  return h+'</div>';
+}
 function renderVerlauf(){
-  const hist=S.history.slice(-20);
-  let h='<p class="meta">FÜLLWÖRTER PRO 100 WÖRTER — LETZTE '+hist.length+' REDEN</p>';
-  if(hist.length<2){
-    h+='<div class="card"><p class="why">Noch zu wenig Daten. Nach zwei Stegreifreden startet hier deine Kurve.</p></div>';
-  }else{
-    const W=480,H=110,max=Math.max(4,...hist.map(x=>x.per100));
-    const pts=hist.map((x,i)=>[(i/(hist.length-1))*(W-20)+10, H-8-(x.per100/max)*(H-20)]);
-    let svg='<svg class="chart" viewBox="0 0 '+W+' '+H+'">';
-    svg+='<polyline fill="none" stroke="#2563eb" stroke-width="2.5" points="'+pts.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ")+'"/>';
-    pts.forEach(p=>{svg+='<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="3.5" fill="#1d4ed8"/>';});
-    svg+='</svg>';
-    h+='<div class="card">'+svg+'<p class="mono center">runter = besser</p></div>';
-  }
-  const n=S.history.length;
-  const avg=n?Math.round(S.history.reduce((a,x)=>a+x.per100,0)/n*10)/10:0;
-  const wpm=n?Math.round(S.history.reduce((a,x)=>a+x.wpm,0)/n):0;
-  h+='<div class="card"><div class="stat">';
-  h+='<div><b>'+n+'</b><span>Reden</span></div>';
-  h+='<div><b>'+avg+'</b><span>Ø Füllw./100</span></div>';
-  h+='<div><b>'+wpm+'</b><span>Ø Wörter/Min</span></div></div></div>';
+  const steg=S.history.filter(x=>!isRede(x)), rede=S.history.filter(isRede), notes=S.history.filter(x=>x.note);
+  const avg=(a,f)=>a.length?Math.round(a.reduce((s,x)=>s+f(x),0)/a.length*10)/10:0;
+  let h='<div class="card" style="margin-top:0"><div class="stat">';
+  h+='<div><b>'+steg.length+'</b><span>Stegreif</span></div>';
+  h+='<div><b>'+rede.length+'</b><span>Aufnahmen</span></div>';
+  h+='<div><b>'+(notes.length?avg(notes,x=>x.note):"–")+'</b><span>Ø Coach-Note</span></div></div></div>';
+  const s20=steg.slice(-20), r20=rede.slice(-20);
+  h+=chartCard("Füllwörter",s20.map(x=>x.per100),{lo:0,hi:2,min:4},
+    "pro 100 Wörter · grün = unter 2 · runter ist besser · Ø "+avg(steg,x=>x.per100),
+    "Nach zwei Stegreifreden startet hier die Kurve.");
+  h+=chartCard("Sprechtempo",s20.map(x=>x.wpm),{lo:110,hi:150,min:160,fromZero:false},
+    "Wörter pro Minute · grün = 110–150 · Ø "+Math.round(avg(steg,x=>x.wpm))+" · am Diktat gemessen, daher nur ein Anhaltspunkt",
+    "Nach zwei Stegreifreden startet hier die Kurve.");
+  h+=chartCard("Pausen pro Minute",r20.map(x=>x.ppm),{line:2,min:6},
+    "aus dem Tab Rede · unter der roten Linie sprichst du durch · Ø "+avg(rede,x=>x.ppm),
+    "Nach zwei Aufnahmen im Tab Rede (je mindestens 10 Sekunden Sprechzeit) startet hier die Kurve.");
   h+='<div class="card"><p class="why"><b>Richtwerte:</b> unter 2 Füllwörter pro 100 Wörter ist stark. 110–150 Wörter/Min ist angenehmes Sprechtempo. Pausen sind keine Fehler — sie ersetzen das Ähm.</p></div>';
   $("main").innerHTML=h;
 }
@@ -640,10 +639,15 @@ async function redeStart(){
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.MediaRecorder){
     R.err="Dieses Gerät stellt kein Aufnahme-API bereit.";render();return;
   }
-  try{rMedia=await navigator.mediaDevices.getUserMedia({audio:true});}
-  catch(e){R.err="Mikrofon-Zugriff abgelehnt. Beim ersten Mal fragt iOS nach — sonst: Einstellungen → Safari (bzw. die Web-App) → Mikrofon erlauben.";render();return;}
+  /* AudioContext noch im Tipp-Ereignis anlegen, vor dem ersten await. Danach
+     gilt es für iOS nicht mehr als Nutzeraktion, der Context startet stumm
+     („suspended“) und die Pausenmessung bekäme nur Stille. */
   const AC=window.AudioContext||window.webkitAudioContext;
   rCtx=new AC();
+  try{rMedia=await navigator.mediaDevices.getUserMedia({audio:true});}
+  catch(e){try{rCtx.close();}catch(_e){}
+    R.err="Mikrofon-Zugriff abgelehnt. Beim ersten Mal fragt iOS nach — sonst: Einstellungen → Safari (bzw. die Web-App) → Mikrofon erlauben.";render();return;}
+  if(rCtx.state==="suspended"){try{await rCtx.resume();}catch(_e){}}
   const src=rCtx.createMediaStreamSource(rMedia);
   const an=rCtx.createAnalyser();an.fftSize=2048;src.connect(an);
   const buf=new Uint8Array(an.fftSize);
@@ -677,6 +681,13 @@ function redeFinalize(){
   R.blob=new Blob(R.chunks,{type:R.mime});
   R.url=URL.createObjectURL(R.blob);
   R.met=redeMetrics(R.rms,R.dur);
+  R.hi=-1;
+  /* Kurze Fehlstarts nicht in den Verlauf, sie verzerren die Kurve. */
+  if(R.met&&R.met.speakSec>=10){
+    S.history.push({d:Date.now(),t:"rede",ppm:R.met.pausePerMin,cv:R.met.cv,pct:R.met.speakPct,dur:R.met.dur});
+    if(S.history.length>200)S.history=S.history.slice(-200);
+    R.hi=S.history.length-1;
+  }
   R.phase="done";bumpStreak();render();
 }
 function redeMetrics(rms,dur){
@@ -739,21 +750,36 @@ async function redeAI(){
     const parts=[{inline_data:{mime_type:R.mime.split(";")[0],data:b64}},{text:userTxt}];
     const txt=await geminiRaw(parts,sys,900);
     R.ai=parseJSON(txt);
+    const n=Number(R.ai&&R.ai.note), e=S.history[R.hi];
+    if(e&&e.t==="rede"&&n>=1&&n<=10){e.note=n;save();}
   }catch(e){R.aiErr=e.message;}
   R.aiLoad=false;render();
 }
-async function geminiRaw(parts,system,maxTokens){
-  const payload=JSON.stringify({
+/* Audio (inline_data) und Text laufen über dieselbe Kette. */
+function geminiRaw(parts,system,maxTokens){return geminiCall([{role:"user",parts:parts}],system,maxTokens);}
+async function geminiCall(contents,system,maxTokens){
+  /* Zwei Lehren aus dem English Trainer:
+     1. Neue Flash-Modelle denken vor der Antwort, und diese Denk-Token zählen
+        gegen maxOutputTokens. Ohne thinkingBudget:0 kam nach langer Wartezeit
+        oft gar kein Text. Kennt ein Modell das Feld nicht (400), läuft derselbe
+        Versuch ohne den Zusatz.
+     2. Eine bei MAX_TOKENS abgeschnittene Antwort ist ein Fehler, kein Ergebnis.
+        Sonst landet halbes JSON bei parseJSON und es heißt nur „unvollständig“. */
+  const want=Math.max(2048,maxTokens||800);
+  const body=mitDenken=>JSON.stringify({
     system_instruction:{parts:[{text:system}]},
-    contents:[{role:"user",parts:parts}],
-    generationConfig:{maxOutputTokens:Math.max(1024,maxTokens||800)}
+    contents:contents,
+    generationConfig:mitDenken?{maxOutputTokens:want}:{maxOutputTokens:want,thinkingConfig:{thinkingBudget:0}}
   });
-  const tryModel=async(model)=>{
+  const call=async(model,mitDenken)=>{
     let res;
     try{
       res=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent",
-        {method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},body:payload});
-    }catch(netErr){const err=new Error("Netzwerkfehler: Anfrage kam nicht bei Google an.");err.code=0;throw err;}
+        {method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},body:body(mitDenken)});
+    }catch(netErr){
+      const err=new Error("Netzwerkfehler: Die Anfrage kam gar nicht bei Google an („Load failed“). Häufigste Ursachen: Key-Einschränkung in AI Studio, Werbeblocker/VPN oder kurz kein Netz.");
+      err.code=0;throw err;
+    }
     if(!res.ok){
       let msg="Server antwortet mit "+res.status;
       try{const eb=await res.json();if(eb&&eb.error&&eb.error.message)msg=eb.error.message;}catch(_e){}
@@ -761,13 +787,34 @@ async function geminiRaw(parts,system,maxTokens){
     }
     const d=await res.json();
     const c=d.candidates&&d.candidates[0];
-    const txt=((c&&c.content&&c.content.parts)||[]).map(p=>p.text||"").join("\n");
-    if(!txt)throw new Error("leere Antwort (Tageslimit erreicht?)");
-    return txt;
+    const txt=((c&&c.content&&c.content.parts)||[]).map(p=>p.text||"").join("\n").trim();
+    const fr=(c&&c.finishReason)||"";
+    if(txt&&fr!=="MAX_TOKENS")return txt;
+    const blockiert=d.promptFeedback&&d.promptFeedback.blockReason;
+    const denk=(d.usageMetadata&&d.usageMetadata.thoughtsTokenCount)||0;
+    let grund;
+    if(blockiert)grund="Google hat die Anfrage blockiert ("+blockiert+").";
+    else if(fr==="MAX_TOKENS")grund="Die Antwort passte nicht ins Token-Budget"+(denk?", "+denk+" Token gingen fürs interne Nachdenken drauf":"")+".";
+    else if(fr==="SAFETY"||fr==="PROHIBITED_CONTENT")grund="Googles Filter hat die Antwort zurückgehalten.";
+    else if(fr==="RECITATION")grund="Google hat die Antwort wegen Zitat-Erkennung verworfen.";
+    else grund="Das Modell hat nichts zurückgegeben"+(fr?" (Grund: "+fr+")":"")+".";
+    const err=new Error(grund+" Modell: "+model+".");
+    err.code=204;err.leer=true;throw err;
+  };
+  const tryModel=async model=>{
+    try{return await call(model,false);}
+    catch(e){
+      if(e.code===400&&/thinking|thought/i.test(e.message||""))return await call(model,true);
+      throw e;
+    }
   };
   const remember=m=>{gModel=m;try{localStorage.setItem(KEY+":gmodel",m);}catch(_e){}};
+  /* „mime“ und „invalid argument“: ein Modell, das die Audioaufnahme nicht annimmt. */
   const modelGone=e=>e.code===404||/not (available|found|supported)|deprecated|no longer|does not exist|invalid argument|mime/i.test(e.message||"");
   const overloaded=e=>e.code===503||e.code===429||/high demand|overloaded|try again|temporar|unavailable|resource.?exhaust|quota/i.test(e.message||"");
+  /* Ein aufgebrauchtes Tageskontingent geht durch Warten nicht weg, darf also
+     den zweiten Durchlauf nicht auslösen. */
+  const tageslimit=e=>e.code===429&&/per ?day|daily|perday|current quota|billing/i.test(e.message||"");
   const cands=[...new Set([gModel,"gemini-flash-latest","gemini-3.7-flash","gemini-3.6-flash",
     "gemini-flash-lite-latest","gemini-2.5-flash-lite","gemini-2.5-flash"].filter(Boolean))];
   let lastErr=null,sawOverload=false;
@@ -775,6 +822,7 @@ async function geminiRaw(parts,system,maxTokens){
     try{const t=await tryModel(m);remember(m);return t;}
     catch(e){
       if(modelGone(e)){lastErr=lastErr||e;continue;}
+      if(e.leer||tageslimit(e)){lastErr=e;continue;}
       if(overloaded(e)){sawOverload=true;lastErr=e;continue;}
       throw e;
     }
@@ -782,8 +830,20 @@ async function geminiRaw(parts,system,maxTokens){
   if(sawOverload){
     await new Promise(r=>setTimeout(r,2500));
     for(const m of cands){try{const t=await tryModel(m);remember(m);return t;}catch(e){lastErr=e;}}
-    throw new Error("Google meldet Überlastung — kurz warten und nochmal.");
+    throw new Error("Google meldet Überlastung auf allen Gratis-Modellen. Das liegt nicht an deinem Key — eine Minute warten und nochmal versuchen.");
   }
+  try{
+    const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=100",
+      {headers:{"x-goog-api-key":apiKey}});
+    const d=await r.json();
+    const pk=((d.models)||[]).filter(m=>(m.supportedGenerationMethods||[]).includes("generateContent"))
+      .map(m=>String(m.name||"").replace("models/",""))
+      .filter(n=>n.includes("flash")&&!/image|live|tts|audio|embed|veo|imagen|thinking/.test(n))
+      .sort().reverse()[0];
+    if(pk&&!cands.includes(pk)){const t=await tryModel(pk);remember(pk);return t;}
+  }catch(_e){}
+  if(lastErr&&tageslimit(lastErr))
+    throw new Error("Das kostenlose Tageskontingent bei Google ist aufgebraucht. Es füllt sich einmal täglich wieder auf, nach US-Westküstenzeit, bei uns also im Laufe des Vormittags. Bis dahin hilft nur ein anderer Key oder der Wechsel auf Anthropic.");
   throw lastErr||new Error("kein Gemini-Modell verfügbar");
 }
 function renderRede(){
@@ -828,8 +888,7 @@ function renderRede(){
       (a.verbesserungen||[]).slice(0,3).forEach(t=>{h+='<p class="why">→ '+esc(t)+'</p>';});
       h+='</div>';
     }
-    h+='<div class="row"><button class="btn ghost" onclick="R.phase=\'idle\';render()">Neue Aufnahme</button>';
-    h+='<button class="btn primary" onclick="redeAI()"'+(R.ai||R.aiLoad?' disabled':'')+'>Nochmal analysieren</button></div>';
+    h+='<button class="btn ghost" onclick="R.phase=\'idle\';render()">Neue Aufnahme</button>';
   }
   $("main").innerHTML=h;
 }
