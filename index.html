@@ -316,8 +316,25 @@ async function askKI(messages,system,maxTokens){
   if(!txt)throw new Error("leere Antwort");
   return txt;
 }
+/* Rohe Zeilenumbrüche und Tabs innerhalb von Zeichenketten sind in JSON
+   verboten, Modelle schreiben sie trotzdem. Hier werden sie maskiert. */
+function fixJSON(s){
+  let o="",inS=false,esc=false;
+  for(const ch of s){
+    if(inS){
+      if(esc){esc=false;o+=ch;continue;}
+      if(ch==="\\"){esc=true;o+=ch;continue;}
+      if(ch==='"'){inS=false;o+=ch;continue;}
+      if(ch==="\n"){o+="\\n";continue;}
+      if(ch==="\r")continue;
+      if(ch==="\t"){o+="\\t";continue;}
+      o+=ch;
+    }else{if(ch==='"')inS=true;o+=ch;}
+  }
+  return o;
+}
 function parseJSON(text){
-  const c=text.replace(/```json/gi,"").replace(/```/g,"").trim();
+  const c=fixJSON(text.replace(/```json/gi,"").replace(/```/g,"").trim());
   const st=[c.indexOf("{"),c.indexOf("[")].filter(i=>i>=0);
   if(!st.length)throw new Error("kein JSON");
   const b=c.slice(Math.min(...st));
@@ -785,7 +802,10 @@ async function geminiCall(contents,system,maxTokens){
   const body=mitDenken=>JSON.stringify({
     system_instruction:{parts:[{text:system}]},
     contents:contents,
-    generationConfig:mitDenken?{maxOutputTokens:want}:{maxOutputTokens:want,thinkingConfig:{thinkingBudget:0}}
+    /* JSON-Modus: Alle Coach-Antworten werden als JSON ausgewertet. Ohne ihn kam
+       gelegentlich JSON mit rohen Zeilenumbrüchen oder unmaskierten Anführungszeichen. */
+    generationConfig:Object.assign({maxOutputTokens:want,responseMimeType:"application/json"},
+      mitDenken?{}:{thinkingConfig:{thinkingBudget:0}})
   });
   const call=async(model,mitDenken)=>{
     /* Einmal wiederholen fängt kurze Aussetzer ab, etwa wenn iOS die App
