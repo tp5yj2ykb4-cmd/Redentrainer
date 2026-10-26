@@ -624,17 +624,17 @@ function renderPrep(){
   $("main").innerHTML=h;
 }
 
-/* ================= Lernzeit (gemeinsam für English und Rhetorik Trainer) ================= */
+/* ================= Lernzeit ================= */
 /* Zählt aktive Übungszeit: nur solange die App sichtbar ist und in den letzten 3 Minuten
    getippt, gescrollt oder geschrieben wurde (oder lernzeitAktiv() lief, z. B. während einer
    Rede). Liegt das Telefon mit offener App herum, zählt danach nichts mehr. Alle 15 s und
    beim Verlassen der App wird gebucht.
-   Gespeichert unter "lernzeit-v1" ohne App-Präfix: Alle Apps auf derselben github.io-Domain
-   teilen sich den Speicher, deshalb gelten Monats- und Jahresziel für beide Apps zusammen.
-   Format: {tage:{"2026-10-26":{en:Sekunden, rh:Sekunden}}, ziele:{monat:Stunden, jahr:Stunden}}
-   Dieser Block steht wortgleich in beiden Apps, nur LZ_APP unterscheidet sich. */
-const LZ_KEY="lernzeit-v1",LZ_APP="rh",LZ_APPS=["en","rh"],LZ_NAME={en:"English",rh:"Rhetorik"},
-  LZ_FARBE={en:"#f59e0b",rh:"#2563eb"},LZ_RUHE=180000,LZ_TAKT=15000;
+   Jede App zeigt nur ihre eigene Zeit und hat eigene Ziele (Wunsch des Nutzers, 26.10.2026).
+   Gespeichert unter "lernzeit-v1" (gleiche github.io-Domain wie die Schwester-App, deshalb je
+   App ein eigenes Feld): {tage:{"2026-10-26":{en:Sek, rh:Sek}}, ziele:{en:{monat,jahr}, rh:{monat,jahr}}}
+   Dieser Block steht wortgleich in English und Rhetorik Trainer, nur LZ_APP unterscheidet sich. */
+const LZ_KEY="lernzeit-v1",LZ_APP="rh",LZ_RUHE=180000,LZ_TAKT=15000,
+  LZ_FARBE={en:"#f59e0b",rh:"#2563eb"}[LZ_APP]||"#2563eb";
 let lzLetzte=Date.now(),lzMark=Date.now();
 function lzLaden(){
   try{const d=JSON.parse(localStorage.getItem(LZ_KEY));
@@ -661,75 +661,66 @@ document.addEventListener("visibilitychange",()=>{
 window.addEventListener("pagehide",lzBuchen);
 setInterval(()=>{if(document.visibilityState==="visible")lzBuchen();},LZ_TAKT);
 
-/* ---- Auswertung und Anzeige ---- */
-function lzSumme(d,pass){const s={};let ges=0;
-  for(const k in d.tage){if(!pass(k))continue;const t=d.tage[k];for(const a in t){const v=+t[a]||0;s[a]=(s[a]||0)+v;ges+=v;}}
-  return {ges,s};}
+/* ---- Auswertung und Anzeige (nur diese App) ---- */
+function lzSumme(d,pass){let s=0;for(const k in d.tage)if(pass(k))s+=+(d.tage[k]||{})[LZ_APP]||0;return s;}
 function lzDauer(sek){const m=Math.round(sek/60);return m<60?m+" min":Math.floor(m/60)+" h "+lz2(m%60)+" min";}
 const lzStd=h=>String(Math.round(h*10)/10).replace(".",",")+" h";
-function lzBalken(anteil,teile,plan){
-  /* teile: [[app, sekunden]] gestapelt, anteil = Gesamtsumme / Ziel */
-  const tot=teile.reduce((s,x)=>s+x[1],0)||1,breite=Math.min(100,anteil*100);
-  let h='<div class="lz-bar"><span class="lz-fill" style="width:'+breite.toFixed(1)+'%">';
-  teile.forEach(([a,v])=>{if(v>0)h+='<i style="width:'+(v/tot*100).toFixed(1)+'%;background:'+LZ_FARBE[a]+'"></i>';});
-  h+='</span>';
+function lzBalken(anteil,plan){
+  let h='<div class="lz-bar"><span class="lz-fill" style="width:'+Math.min(100,anteil*100).toFixed(1)+'%;background:'+LZ_FARBE+'"></span>';
   if(plan!=null)h+='<span class="lz-plan" style="left:'+Math.min(100,plan*100).toFixed(1)+'%"></span>';
   return h+'</div>';
 }
 function lzMonateSvg(d,jahr,zielMonat){
-  const m=Array.from({length:12},()=>({})),akt=new Date().getMonth();
-  for(const k in d.tage){if(k.slice(0,4)!==String(jahr))continue;const i=+k.slice(5,7)-1;if(!(i>=0&&i<12))continue;
-    const t=d.tage[k];for(const a in t)m[i][a]=(m[i][a]||0)+(+t[a]||0);}
-  const W=320,H=100,pt=8,pb=16,bw=W/12,max=Math.max(3600,zielMonat*3600,...m.map(x=>Object.values(x).reduce((s,v)=>s+v,0)))*1.1;
-  const y=v=>H-pb-v/max*(H-pt-pb);
+  const m=Array(12).fill(0),akt=new Date().getMonth();
+  for(const k in d.tage){if(k.slice(0,4)!==String(jahr))continue;const i=+k.slice(5,7)-1;if(i>=0&&i<12)m[i]+=+(d.tage[k]||{})[LZ_APP]||0;}
+  const W=320,H=100,pt=8,pb=16,bw=W/12,max=Math.max(3600,zielMonat*3600,...m)*1.1,y=v=>H-pb-v/max*(H-pt-pb);
   let s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Lernzeit je Monat">';
-  m.forEach((x,i)=>{let unten=0;
-    LZ_APPS.forEach(a=>{const v=x[a]||0;if(!v)return;const y0=y(unten),y1=y(unten+v);
-      s+='<rect x="'+(i*bw+bw*.18).toFixed(1)+'" y="'+y1.toFixed(1)+'" width="'+(bw*.64).toFixed(1)+'" height="'+Math.max(1,y0-y1).toFixed(1)+'" rx="2" style="fill:'+LZ_FARBE[a]+'"/>';unten+=v;});
+  m.forEach((v,i)=>{
+    if(v>0)s+='<rect x="'+(i*bw+bw*.18).toFixed(1)+'" y="'+y(v).toFixed(1)+'" width="'+(bw*.64).toFixed(1)+'" height="'+Math.max(1,y(0)-y(v)).toFixed(1)+'" rx="2" style="fill:'+LZ_FARBE+'"/>';
     s+='<text x="'+(i*bw+bw/2).toFixed(1)+'" y="'+(H-3)+'" font-size="10" text-anchor="middle" style="fill:var(--'+(i===akt?'txt':'faint')+')'+(i===akt?';font-weight:700':'')+'">'+"JFMAMJJASOND"[i]+'</text>';});
   if(zielMonat>0)s+='<line x1="0" x2="'+W+'" y1="'+y(zielMonat*3600).toFixed(1)+'" y2="'+y(zielMonat*3600).toFixed(1)+'" stroke-dasharray="4 4" stroke-width="1.2" style="stroke:var(--red)"/>';
   return s+'</svg>';
 }
+/* Ziele dieser App. Übergang: Hat die App noch keine eigenen, gelten die früher gemeinsamen. */
+function lzZiele(d){const z=d.ziele[LZ_APP]&&typeof d.ziele[LZ_APP]==="object"?d.ziele[LZ_APP]:d.ziele;return {monat:+z.monat||0,jahr:+z.jahr||0};}
 function lzKarte(){
   lzBuchen();   // aktuellen Stand mitnehmen
   const d=lzLaden(),jetzt=new Date(),J=jetzt.getFullYear(),M=lz2(jetzt.getMonth()+1),heute=lzTag(Date.now());
-  const zM=+d.ziele.monat||0,zJeigen=+d.ziele.jahr||0,zJ=zJeigen||zM*12;
+  const z=lzZiele(d),zM=z.monat,zJeigen=z.jahr,zJ=zJeigen||zM*12;
   const tag=lzSumme(d,k=>k===heute),mon=lzSumme(d,k=>k.slice(0,7)===J+"-"+M),jahr=lzSumme(d,k=>k.slice(0,4)===String(J));
-  const teile=x=>LZ_APPS.map(a=>[a,x.s[a]||0]);
   const tageImMonat=new Date(J,jetzt.getMonth()+1,0).getDate(),restTage=tageImMonat-jetzt.getDate()+1;
   /* Der Jahresplan läuft ab dem ersten erfassten Übungstag dieses Jahres, nicht ab 1. Januar.
      Sonst läge man beim Start mitten im Jahr sofort weit hinter dem Plan. */
-  const ersterTag=Object.keys(d.tage).filter(k=>k.slice(0,4)===String(J)).sort()[0];
+  const ersterTag=Object.keys(d.tage).filter(k=>k.slice(0,4)===String(J)&&+(d.tage[k]||{})[LZ_APP]>0).sort()[0];
   const start=ersterTag?new Date(+ersterTag.slice(0,4),+ersterTag.slice(5,7)-1,+ersterTag.slice(8,10)):new Date(J,jetzt.getMonth(),jetzt.getDate());
   const tagNr=Math.floor((jetzt-start)/864e5)+1,tageJahr=Math.round((new Date(J+1,0,1)-start)/864e5),abStart=start.getMonth()||start.getDate()>1;
   let h='<div class="card lz"><h3>⏱️ Lernzeit</h3>'
-    +'<div class="lz-zeile"><span>Heute</span><b>'+lzDauer(tag.ges)+'</b></div>'
-    +'<div class="lz-txt">'+LZ_APPS.map(a=>LZ_NAME[a]+' '+lzDauer(tag.s[a]||0)).join(' · ')+'</div>';
+    +'<div class="lz-zeile"><span>Heute</span><b>'+lzDauer(tag)+'</b></div>';
   // Monat
-  h+='<div class="lz-zeile"><span>'+jetzt.toLocaleDateString("de-DE",{month:"long"})+'</span><b>'+lzDauer(mon.ges)+(zM?' <small>von '+lzStd(zM)+'</small>':'')+'</b></div>';
-  if(zM){const rest=zM*3600-mon.ges;
-    h+=lzBalken(mon.ges/(zM*3600),teile(mon),null)
+  h+='<div class="lz-zeile"><span>'+jetzt.toLocaleDateString("de-DE",{month:"long"})+'</span><b>'+lzDauer(mon)+(zM?' <small>von '+lzStd(zM)+'</small>':'')+'</b></div>';
+  if(zM){const rest=zM*3600-mon;
+    h+=lzBalken(mon/(zM*3600),null)
       +'<div class="lz-txt">'+(rest<=0?'🎉 Monatsziel geschafft!':'Noch '+lzDauer(rest)+', das sind etwa '+lzDauer(rest/restTage)+' pro Tag bis Monatsende.')+'</div>';}
   else h+='<div class="lz-txt">Noch kein Monatsziel gesetzt.</div>';
   // Jahr, mit Planmarke: so viel sollte es heute anteilig sein
-  h+='<div class="lz-zeile"><span>'+J+'</span><b>'+lzDauer(jahr.ges)+(zJ?' <small>von '+lzStd(zJ)+'</small>':'')+'</b></div>';
-  if(zJ){const plan=zJ*3600*tagNr/tageJahr,diff=jahr.ges-plan;
-    h+=lzBalken(jahr.ges/(zJ*3600),teile(jahr),plan/(zJ*3600))
-      +'<div class="lz-txt">'+(jahr.ges>=zJ*3600?'🏆 Jahresziel geschafft!':Math.abs(diff)<1800?'Genau im Plan.':diff>0?'Du liegst '+lzDauer(diff)+' vor dem Plan.':'Du liegst '+lzDauer(-diff)+' hinter dem Plan.')
+  h+='<div class="lz-zeile"><span>'+J+'</span><b>'+lzDauer(jahr)+(zJ?' <small>von '+lzStd(zJ)+'</small>':'')+'</b></div>';
+  if(zJ){const plan=zJ*3600*tagNr/tageJahr,diff=jahr-plan;
+    h+=lzBalken(jahr/(zJ*3600),plan/(zJ*3600))
+      +'<div class="lz-txt">'+(jahr>=zJ*3600?'🏆 Jahresziel geschafft!':Math.abs(diff)<1800?'Genau im Plan.':diff>0?'Du liegst '+lzDauer(diff)+' vor dem Plan.':'Du liegst '+lzDauer(-diff)+' hinter dem Plan.')
       +' Der Strich zeigt, wo du heute laut Plan stehen solltest'+(abStart?' (gerechnet ab deinem Start am '+lz2(start.getDate())+'.'+lz2(start.getMonth()+1)+'.)':'')+'.'+(zJeigen?'':' Jahresziel = 12 × Monatsziel.')+'</div>';}
   h+=lzMonateSvg(d,J,zM)
-    +'<div class="lz-leg">'+LZ_APPS.map(a=>'<span><i style="background:'+LZ_FARBE[a]+'"></i>'+LZ_NAME[a]+'</span>').join('')+(zM?'<span><i style="background:var(--red);height:2px;vertical-align:3px"></i>Monatsziel</span>':'')+'</div>';
+    +(zM?'<div class="lz-leg"><span><i style="background:var(--red);height:2px;vertical-align:3px"></i>Monatsziel</span></div>':'');
   h+='<details class="lz-ziele"'+(zM||zJeigen?'':' open')+'><summary>🎯 Ziele '+(zM||zJeigen?'ändern':'setzen')+'</summary>'
     +'<div class="lz-felder"><label>Stunden im Monat<input type="text" inputmode="decimal" id="lzMonat" value="'+(zM?String(zM).replace(".",","):'')+'" placeholder="z. B. 10"></label>'
     +'<label>Stunden im Jahr<input type="text" inputmode="decimal" id="lzJahr" value="'+(zJeigen?String(zJeigen).replace(".",","):'')+'" placeholder="'+(zM?zM*12:'z. B. 120')+'"></label></div>'
     +'<button class="btn primary" onclick="lzZieleSpeichern()">Ziele speichern</button>'
-    +'<p class="why">Gezählt wird nur, solange du übst: Ohne Tippen oder Scrollen hört die Zeit nach 3 Minuten auf. Die Ziele gelten für English und Rhetorik Trainer zusammen.</p></details>';
+    +'<p class="why">Gezählt wird nur, solange du übst: Ohne Tippen oder Scrollen hört die Zeit nach 3 Minuten auf. Zeit und Ziele gelten nur für diese App.</p></details>';
   return h+'</div>';
 }
 function lzZieleSpeichern(){
   const zahl=id=>{const e=document.getElementById(id);const v=parseFloat(String(e?e.value:"").replace(",","."));return v>0?Math.min(9999,Math.round(v*10)/10):0;};
-  const d=lzLaden();d.ziele={};const m=zahl("lzMonat"),j=zahl("lzJahr");if(m)d.ziele.monat=m;if(j)d.ziele.jahr=j;
-  lzSchreiben(d);render();
+  const d=lzLaden(),z={},m=zahl("lzMonat"),j=zahl("lzJahr");if(m)z.monat=m;if(j)z.jahr=j;
+  d.ziele[LZ_APP]=z;lzSchreiben(d);render();
 }
 
 /* ================= Verlauf ================= */
