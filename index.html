@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; media-src blob: data:; connect-src https://api.anthropic.com https://generativelanguage.googleapis.com; base-uri 'none'; form-action 'none'">
 <meta name="theme-color" content="#fafaf9">
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" type="image/png" href="icon.png">
@@ -747,7 +748,7 @@ function chartHtml(vals,o){
 }
 function chartCard(title,vals,o,hint,empty){
   let h='<div class="card"><div class="chart-h"><h3>'+title+'</h3>'
-    +(vals.length?'<b>zuletzt '+vals[vals.length-1]+'</b>':'')+'</div>';
+    +(vals.length?'<b>zuletzt '+esc(vals[vals.length-1])+'</b>':'')+'</div>';
   h+=vals.length<2?'<p class="why">'+empty+'</p>'
     :chartHtml(vals,o)+'<p class="mono" style="margin-top:6px;line-height:1.5">'+hint+'</p>';
   return h+'</div>';
@@ -1063,11 +1064,23 @@ function copyExport(){
     ()=>{$("notice").textContent="Code kopiert.";},()=>{$("notice").textContent="Feld antippen und alles markieren.";});}
   else{$("notice").textContent="Feld antippen und alles markieren.";}
 }
+/* Ein eingefügter Code kann von außen kommen: nur bekannte Felder übernehmen, Messwerte nur als Zahlen.
+   Sonst könnte ein präparierter Code HTML in den Verlauf schmuggeln. */
+function saeubern(o){
+  const num=x=>typeof x==="number"&&isFinite(x)?x:0;
+  const st=o.stats&&typeof o.stats==="object"?o.stats:{};
+  const history=(Array.isArray(o.history)?o.history:[]).filter(x=>x&&typeof x==="object").slice(-200).map(x=>{
+    const e=x.t==="rede"?{d:num(x.d),t:"rede",ppm:num(x.ppm),cv:num(x.cv),pct:num(x.pct),dur:num(x.dur)}
+      :{d:num(x.d),per100:num(x.per100),wpm:num(x.wpm),words:num(x.words)};
+    if(typeof x.note==="number"&&x.note>=1&&x.note<=10)e.note=x.note;
+    return e;});
+  return {history,stats:{streak:num(st.streak),lastDay:typeof st.lastDay==="string"?st.lastDay.slice(0,40):null,sessions:num(st.sessions)}};
+}
 function doImport(){
   try{
     const o=JSON.parse($("importbox").value.trim());
     if(!o||!o.stats)throw new Error("leer");
-    S=Object.assign({history:[],stats:{streak:0,lastDay:null,sessions:0}},o);
+    S=saeubern(o);
     save();$("importbox").value="";closeBackup();
   }catch(e){$("notice").textContent="Code war unvollständig — bitte komplett einfügen.";}
 }
